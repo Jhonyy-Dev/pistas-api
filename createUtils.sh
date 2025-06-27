@@ -7,8 +7,10 @@ mkdir -p /app/middlewares
 mkdir -p /app/api/middlewares
 mkdir -p /app/api/models
 mkdir -p /app/api/config
+mkdir -p /app/api/routes
 mkdir -p /app/models
 mkdir -p /app/config
+mkdir -p /app/routes
 mkdir -p /app/middlewares
 
 # Crear el archivo validateEnv.js
@@ -313,6 +315,92 @@ const sequelize = new Sequelize(process.env.DATABASE_URL, {
 module.exports = sequelize;
 EOL
 
+# Crear el archivo config/backblaze.js
+cat > /app/api/config/backblaze.js << 'EOL'
+const AWS = require('aws-sdk');
+
+// Definir el nombre del bucket
+const BUCKET_NAME = process.env.B2_BUCKET_NAME || 'pistas';
+
+// Extraer credenciales correctas del B2_APPLICATION_KEY si existe
+let accessKeyId, secretAccessKey;
+if (process.env.B2_APPLICATION_KEY && process.env.B2_APPLICATION_KEY.includes(':')) {
+  // Si tenemos el formato completo "keyID:applicationKey"
+  const parts = process.env.B2_APPLICATION_KEY.split(':');
+  accessKeyId = parts[0];
+  secretAccessKey = parts[1];
+  console.log('Usando credenciales desde B2_APPLICATION_KEY');
+} else {
+  // Si no, usar las claves individuales
+  accessKeyId = process.env.B2_ACCESS_KEY;
+  secretAccessKey = process.env.B2_SECRET_KEY;
+  console.log('Usando credenciales desde B2_ACCESS_KEY y B2_SECRET_KEY');
+}
+
+// Verificar que tenemos lo necesario
+if (!accessKeyId || !secretAccessKey) {
+  console.error('ERROR: No se pudieron determinar las credenciales de B2');
+}
+
+if (!process.env.B2_ENDPOINT) {
+  console.error('ERROR: Falta el endpoint de B2');
+}
+
+// Mostrar información de configuración (ocultando datos sensibles)
+console.log('Configuración de Backblaze B2:');
+console.log(`- Bucket: ${BUCKET_NAME}`);
+console.log(`- Endpoint: ${process.env.B2_ENDPOINT}`);
+console.log(`- Region: ${process.env.B2_REGION || 'us-east-005'}`);
+console.log(`- Access Key: ${accessKeyId ? '****' + accessKeyId.slice(-4) : 'No definido'}`);
+
+// Configuración mejorada para B2
+const s3 = new AWS.S3({
+  accessKeyId: accessKeyId,
+  secretAccessKey: secretAccessKey,
+  endpoint: process.env.B2_ENDPOINT,
+  s3ForcePathStyle: true, // Requerido para B2
+  signatureVersion: 'v4',
+  region: process.env.B2_REGION || 'us-east-005', // B2 usa 'us-east-005' por defecto
+  // Timeouts más largos
+  httpOptions: {
+    timeout: 30000, // 30 segundos
+    connectTimeout: 10000 // 10 segundos para conexión
+  }
+});
+
+// Función para generar URL pública
+const getPublicUrl = (key) => {
+  return `https://${process.env.B2_ENDPOINT}/${BUCKET_NAME}/${encodeURIComponent(key)}`;
+};
+
+// Función para probar la conexión al bucket
+const testConnection = () => {
+  return new Promise((resolve, reject) => {
+    s3.listObjects({ Bucket: BUCKET_NAME, MaxKeys: 1 }, (err, data) => {
+      if (err) {
+        console.error('Error al conectar con Backblaze B2:', err);
+        reject(err);
+      } else {
+        console.log('Conexión a Backblaze B2 exitosa');
+        resolve(data);
+      }
+    });
+  });
+};
+
+// Ejecutar prueba de conexión inmediatamente
+testConnection().catch(err => {
+  console.error('No se pudo conectar con el bucket. Verifica tus credenciales y configuración');
+});
+
+module.exports = {
+  s3,
+  BUCKET_NAME,
+  getPublicUrl,
+  testConnection
+};
+EOL
+
 # Crear el archivo track.js
 cat > /app/api/models/track.js << 'EOL'
 const { DataTypes } = require('sequelize');
@@ -379,6 +467,251 @@ module.exports = {
 };
 EOL
 
+# Crear archivo routes/health.js
+cat > /app/api/routes/health.js << 'EOL'
+const express = require('express');
+const router = express.Router();
+
+/**
+ * @route   GET /api/health
+ * @desc    Health check endpoint para Railway
+ * @access  Public
+ */
+router.get('/', (req, res) => {
+  res.status(200).json({ 
+    status: 'success',
+    message: 'API Solo Chiveros operativa',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV,
+    version: '1.0.0',
+    trackStats: {
+      totalTracks: 4000,
+      pageSize: 50,
+      totalPages: 80
+    }
+  });
+});
+
+module.exports = router;
+EOL
+
+# Crear archivo routes/tracks.js
+cat > /app/api/routes/tracks.js << 'EOL'
+const express = require('express');
+const router = express.Router();
+const { s3, BUCKET_NAME } = require('../config/backblaze');
+const { Track } = require('../models');
+const { Op } = require('sequelize');
+
+// Obtener listado de pistas (paginado)
+router.get('/', async (req, res, next) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const offset = (page - 1) * limit;
+    
+    let where = {};
+    
+    // Buscar por título si se proporciona un término de búsqueda
+    if (req.query.search) {
+      where.title = { [Op.like]: `%${req.query.search}%` };
+    }
+    
+    // Obtener pistas con paginación
+    const tracks = await Track.findAndCountAll({
+      where,
+      limit,
+      offset,
+      order: [['createdAt', 'DESC']]
+    });
+    
+    const totalPages = Math.ceil(tracks.count / limit);
+    
+    res.json({
+      data: tracks.rows,
+      pagination: {
+        currentPage: page,
+        totalPages,
+        totalItems: tracks.count,
+        itemsPerPage: limit
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Obtener una pista específica por ID
+router.get('/:id', async (req, res, next) => {
+  try {
+    const track = await Track.findByPk(req.params.id);
+    
+    if (!track) {
+      return res.status(404).json({ error: true, message: 'Pista no encontrada' });
+    }
+    
+    res.json({ data: track });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Marcar una pista como reproducida (incrementar contador)
+router.post('/:id/play', async (req, res) => {
+  try {
+    const track = await Track.findByPk(req.params.id);
+    
+    if (!track) {
+      return res.status(404).json({ error: 'Track no encontrado' });
+    }
+    
+    // Incrementar contador de reproducciones
+    await track.increment('plays');
+    
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error incrementando plays:', error);
+    res.status(500).json({ error: 'Error al procesar la reproducción' });
+  }
+});
+
+// Obtener URL temporal para streaming de una pista
+router.get('/:id/stream', async (req, res, next) => {
+  try {
+    const track = await Track.findByPk(req.params.id);
+    
+    if (!track) {
+      return res.status(404).json({ error: true, message: 'Pista no encontrada' });
+    }
+    
+    // Método simplificado: devolver la URL directa a nuestra API proxy-stream
+    try {
+      // Construir una URL directa a nuestro endpoint de proxy de audio
+      // Esta URL evita problemas CORS porque es servida por nuestro propio servidor
+      let baseUrl = process.env.API_URL || `http://localhost:${process.env.PORT || 8081}`;
+      
+      // Asegurar que baseUrl no termina con barra para evitar doble barra en la URL final
+      if (baseUrl.endsWith('/')) {
+        baseUrl = baseUrl.slice(0, -1);
+      }
+      
+      const directStreamUrl = `${baseUrl}/api/tracks/direct-stream/${track.id}`;
+      
+      console.log(`URL de streaming directa generada: ${directStreamUrl}`);
+      
+      // Devolver solo la URL - simple y efectivo
+      res.json({
+        data: {
+          streamUrl: directStreamUrl
+        }
+      });
+    } catch (genError) {
+      console.error('Error al generar URL de streaming:', genError);
+      res.status(500).json({ error: true, message: 'Error al generar URL de streaming', details: genError.message });
+    }
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Listar archivos de Backblaze B2 y sincronizar con base de datos
+router.post('/sync', async (req, res, next) => {
+  try {
+    // Listar objetos en el bucket de B2
+    const { Contents } = await s3.listObjects({ Bucket: BUCKET_NAME }).promise();
+    
+    // Solo procesar archivos MP3
+    const mp3Files = Contents.filter(file => file.Key.toLowerCase().endsWith('.mp3'));
+    
+    for (const file of mp3Files) {
+      // Verificar si ya existe en la base de datos
+      const existingTrack = await Track.findOne({ where: { filename: file.Key } });
+      
+      if (!existingTrack) {
+        // Generar URL de acceso público
+        const url = `${process.env.B2_ENDPOINT}/${BUCKET_NAME}/${file.Key}`;
+        
+        // Extraer título del nombre del archivo
+        const title = file.Key.replace(/\.mp3$/i, '').replace(/_/g, ' ');
+        
+        // Crear nuevo registro en la base de datos
+        await Track.create({
+          title,
+          filename: file.Key,
+          b2FileId: file.ETag,
+          b2FileUrl: url,
+          fileSize: file.Size
+        });
+      }
+    }
+    
+    res.json({ message: 'Sincronización completada', filesProcessed: mp3Files.length });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ENDPOINT DE STREAMING DIRECTO - SOLUCIÓN DEFINITIVA
+router.get('/direct-stream/:id', async (req, res) => {
+  try {
+    const trackId = req.params.id;
+    const track = await Track.findByPk(trackId);
+    
+    if (!track) {
+      return res.status(404).send('Pista no encontrada');
+    }
+    
+    console.log(`Streaming directo para: ${track.filename} (ID: ${trackId})`);
+    
+    // SOLUCIÓN DEFINITIVA SIMPLIFICADA: Redireccionar directamente a la URL firmada
+    try {
+      // Depurar credenciales y configuración
+      console.log('Configuración de B2:');
+      console.log(`- Bucket: ${BUCKET_NAME}`);
+      console.log(`- Endpoint: ${process.env.B2_ENDPOINT || 'NO DEFINIDO'}`);
+      console.log(`- Ambiente: ${process.env.NODE_ENV || 'development'}`);
+
+      // Probar a decodificar el nombre de archivo
+      const decodedFileName = decodeURIComponent(track.filename);
+      console.log(`- Nombre archivo original: ${track.filename}`);
+      console.log(`- Nombre archivo decodificado: ${decodedFileName}`);
+
+      // Generar URL firmada - sin proxy intermedio
+      const url = s3.getSignedUrl('getObject', {
+        Bucket: BUCKET_NAME,
+        Key: decodedFileName,
+        Expires: 3600, // 1 hora
+        ResponseContentType: 'audio/mpeg', // Forzar tipo de contenido correcto
+        ResponseContentDisposition: 'inline' // Forzar reproducción en lugar de descarga
+      });
+      
+      // Verificar si la URL generada tiene https en producción
+      let finalUrl = url;
+      const isProduction = process.env.NODE_ENV === 'production';
+      
+      // Forzar HTTPS en producción si la URL es HTTP
+      if (isProduction && finalUrl.startsWith('http:')) {
+        finalUrl = finalUrl.replace('http:', 'https:');
+        console.log('URL convertida a HTTPS para ambiente de producción');
+      }
+      
+      console.log(`URL firmada final: ${finalUrl.substring(0, 100)}...`);
+      
+      // Redirigir directamente a la URL firmada - esto evita problemas de proxy
+      return res.redirect(finalUrl);
+    } catch (error) {
+      console.error('Error al generar URL firmada:', error);
+      return res.status(500).send('Error al generar URL de streaming');
+    }
+  } catch (error) {
+    console.error('Error en endpoint direct-stream:', error);
+    return res.status(500).send('Error interno del servidor');
+  }
+});
+
+module.exports = router;
+EOL
+
 # Duplicar todos los archivos en la raíz del proyecto
 echo "Duplicando archivos en la raíz del proyecto..."
 cp /app/api/utils/validateEnv.js /app/utils/
@@ -388,7 +721,9 @@ cp /app/api/middlewares/rateLimiter.js /app/middlewares/
 cp /app/api/middlewares/securityHeaders.js /app/middlewares/
 cp /app/api/middlewares/requestLogger.js /app/middlewares/
 cp /app/api/config/database.js /app/config/ 2>/dev/null || true
+cp /app/api/config/backblaze.js /app/config/ 2>/dev/null || true
 cp -R /app/api/models/* /app/models/ 2>/dev/null || true
+cp -R /app/api/routes/* /app/routes/ 2>/dev/null || true
 
 # Crear archivo errorHandler.js directamente en la raíz si no existe
 cat > /app/utils/errorHandler.js << 'EOL'
