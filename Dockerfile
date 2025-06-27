@@ -6,8 +6,17 @@ WORKDIR /app
 # Copiar todo el código fuente
 COPY . .
 
+# Listar contenido para depuración
+RUN echo "==== Contenido de /app ====" && ls -la
+
+# Listar contenido de api para depuración
+RUN echo "==== Contenido de /app/api ====" && ls -la api || echo "No existe carpeta api"
+
 # Directorio de trabajo para la API
 WORKDIR /app/api
+
+# Listar contenido del directorio actual para depuración
+RUN echo "==== Contenido del directorio actual ====" && ls -la
 
 # Instalar dependencias
 RUN npm install
