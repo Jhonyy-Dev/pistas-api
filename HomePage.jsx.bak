@@ -1,0 +1,408 @@
+import React, { useEffect, useState, useCallback } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import { fetchTracks, fetchTrackStreamUrl } from '../store/slices/tracksSlice';
+import { FaPlay, FaPause, FaSpinner, FaSearch, FaChevronLeft, FaChevronRight } from 'react-icons/fa';
+import './HomePage.css';
+
+const HomePage = () => {
+  const dispatch = useDispatch();
+  const { tracks, status, error, pagination, streamUrls } = useSelector(state => state.tracks);
+  const [currentPlaying, setCurrentPlaying] = useState(null);
+  const [audioElement, setAudioElement] = useState(null);
+  const [isLoading, setIsLoading] = useState({});
+  const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+  
+  // Manejar búsqueda
+  const handleSearch = useCallback(() => {
+    setCurrentPage(1); // Resetear a la primera página cuando se busca
+    dispatch(fetchTracks({ 
+      page: 1, 
+      limit: itemsPerPage,
+      search: searchTerm.trim() 
+    }));
+  }, [dispatch, searchTerm, itemsPerPage]);
+  
+  // Manejar eventos de paginación
+  const handlePageChange = useCallback((newPage) => {
+    if (newPage < 1 || (pagination && pagination.totalPages && newPage > pagination.totalPages)) {
+      return;
+    }
+    setCurrentPage(newPage);
+    dispatch(fetchTracks({ 
+      page: newPage, 
+      limit: itemsPerPage,
+      search: searchTerm.trim() 
+    }));
+  }, [dispatch, itemsPerPage, searchTerm, pagination]);
+
+  // Cargar pistas al montar el componente
+  useEffect(() => {
+    // Mostrar mensaje en consola para depuración
+    console.log('Cargando pistas desde la API...');
+    dispatch(fetchTracks({ 
+      page: currentPage, 
+      limit: itemsPerPage,
+      search: searchTerm.trim() 
+    }));
+  }, [dispatch]);
+
+  // Inicializar elemento de audio
+  useEffect(() => {
+    const audio = new Audio();
+    audio.addEventListener('ended', () => setCurrentPlaying(null));
+    setAudioElement(audio);
+    
+    return () => {
+      audio.pause();
+      audio.removeEventListener('ended', () => setCurrentPlaying(null));
+    };
+  }, []);
+
+  // Función para reproducir/pausar una pista
+  const togglePlay = useCallback(async (track) => {
+    if (!audioElement) return;
+    
+    // Si ya está reproduciendo esta pista, pausarla
+    if (currentPlaying === track.id) {
+      audioElement.pause();
+      setCurrentPlaying(null);
+      return;
+    }
+    
+    // Si está reproduciendo otra pista, detenerla
+    if (currentPlaying) {
+      audioElement.pause();
+    }
+    
+    try {
+      setIsLoading(prev => ({ ...prev, [track.id]: true }));
+      
+      // Obtener la URL de streaming si no está en caché
+      if (!streamUrls[track.id]) {
+        await dispatch(fetchTrackStreamUrl(track.id));
+      }
+      
+      // Esperar a que la acción se complete y obtener la URL del estado actualizado
+      const streamUrl = streamUrls[track.id];
+      
+      if (streamUrl) {
+        audioElement.src = streamUrl;
+        audioElement.play();
+        setCurrentPlaying(track.id);
+      } else {
+        console.error('No se pudo obtener la URL de streaming');
+      }
+    } catch (err) {
+      console.error('Error al reproducir:', err);
+    } finally {
+      setIsLoading(prev => ({ ...prev, [track.id]: false }));
+    }
+  }, [audioElement, currentPlaying, dispatch, streamUrls]);
+
+  // Formatear duración en formato mm:ss
+  const formatDuration = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+  };
+
+  // Formatear tamaño de archivo
+  const formatFileSize = (bytes) => {
+    const mb = bytes / (1024 * 1024);
+    return `${mb.toFixed(1)} MB`;
+  };
+
+  return (
+    <div style={{ 
+      padding: '20px',
+      minHeight: '100vh',
+      backgroundColor: '#121212',
+      color: '#ffffff',
+      fontFamily: 'sans-serif'
+    }}>
+      <div style={{ 
+        maxWidth: '1200px',
+        margin: '0 auto',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '24px'
+      }}>
+        <div style={{ 
+          backgroundColor: 'rgba(30, 30, 30, 0.7)',
+          padding: '40px 30px',
+          borderRadius: '16px',
+          boxShadow: '0 10px 30px rgba(0, 0, 0, 0.3)',
+          textAlign: 'center',
+          backgroundImage: 'linear-gradient(135deg, #1e1e1e 0%, #292929 100%)',
+          border: '1px solid rgba(255, 255, 255, 0.08)'
+        }}>
+          <h1 style={{ 
+            fontSize: '2.5rem',
+            marginBottom: '12px',
+            background: 'linear-gradient(45deg, #8c44ff 0%, #b892ff 100%)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            textShadow: '0 1px 3px rgba(0, 0, 0, 0.3)'
+          }}>PISTAS CHIVERAS</h1>
+          
+          <p style={{ 
+            fontSize: '1.1rem',
+            color: '#b0b0b0',
+            maxWidth: '600px',
+            margin: '0 auto',
+            lineHeight: '1.5'
+          }}>Tu plataforma de streaming para escuchar tus pistas favoritas de la mejor calidad</p>
+        </div>
+
+        <div style={{ 
+          backgroundColor: 'rgba(30, 30, 30, 0.7)',
+          padding: '30px',
+          borderRadius: '16px',
+          boxShadow: '0 10px 30px rgba(0, 0, 0, 0.2)',
+          backdropFilter: 'blur(10px)',
+          border: '1px solid rgba(255, 255, 255, 0.08)'
+        }}>
+        {/* Barra de búsqueda */}
+        <div style={{ 
+          display: 'flex',
+          marginBottom: '24px',
+          backgroundColor: 'rgba(20, 20, 20, 0.5)',
+          borderRadius: '12px',
+          padding: '12px 16px',
+          alignItems: 'center',
+          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)',
+          border: '1px solid rgba(255, 255, 255, 0.05)'
+        }}>
+          <input 
+            type="text" 
+            placeholder="Buscar pista..." 
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+            style={{
+              backgroundColor: 'transparent',
+              border: 'none',
+              color: 'white',
+              fontSize: '1.1rem',
+              width: '100%',
+              outline: 'none',
+              fontFamily: 'inherit',
+              padding: '6px 0'
+            }}
+          />
+          <button 
+            onClick={handleSearch}
+            style={{
+              backgroundColor: '#8c44ff', 
+              border: 'none',
+              borderRadius: '10px',
+              padding: '12px 20px',
+              marginLeft: '12px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              fontWeight: '600',
+              transition: 'all 0.2s ease',
+              boxShadow: '0 4px 12px rgba(140, 68, 255, 0.3)'
+            }}
+            onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
+            onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+          >
+            <FaSearch color="white" size={16} />
+            <span style={{ color: 'white', marginLeft: '8px', fontSize: '16px' }}>Buscar</span>
+          </button>
+        </div>
+        
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h3>Pistas disponibles</h3>
+          {status === 'loading' && 
+            <div style={{ color: '#6200ee', display: 'flex', alignItems: 'center' }}>
+              <FaSpinner style={{ animation: 'spin 1s linear infinite', marginRight: '8px' }} />
+              <span>Cargando pistas...</span>
+            </div>
+          }
+        </div>
+
+        {error && (
+          <div style={{ padding: '15px', backgroundColor: '#3c1e1e', borderRadius: '4px', marginTop: '15px' }}>
+            <p>Error al cargar las pistas: {error}</p>
+            <p>Mostrando pistas de ejemplo</p>
+          </div>
+        )}
+        
+        {error && <p style={{ color: 'red' }}>Error: {error}</p>}
+        
+        {tracks && tracks.length === 0 && !status === 'loading' && (
+          <p>No hay pistas disponibles.</p>
+        )}
+        
+        <div style={{ marginTop: '20px' }}>
+          {tracks && tracks.length > 0 ? (
+            tracks.map(track => (
+              <div key={track.id} style={{
+                display: 'flex',
+                alignItems: 'center',
+                padding: '12px',
+                backgroundColor: currentPlaying === track.id ? '#333333' : '#292929',
+                borderRadius: '8px',
+                marginBottom: '10px',
+                transition: 'all 0.3s ease',
+                boxShadow: currentPlaying === track.id ? '0 0 8px rgba(98, 0, 238, 0.3)' : 'none',
+                borderLeft: currentPlaying === track.id ? '3px solid #6200ee' : 'none',
+                transform: currentPlaying === track.id ? 'translateX(4px)' : 'none'
+              }}>
+                <div style={{ marginRight: '15px', position: 'relative' }}>
+                  <button 
+                    onClick={() => togglePlay(track)}
+                    disabled={isLoading[track.id]}
+                    style={{
+                      backgroundColor: currentPlaying === track.id ? '#8c44ff' : '#6200ee',
+                      color: 'white',
+                      border: 'none',
+                      width: '40px',
+                      height: '40px',
+                      borderRadius: '50%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      boxShadow: currentPlaying === track.id ? 
+                        '0 0 0 4px rgba(140, 68, 255, 0.3)' : 
+                        '0 2px 4px rgba(0,0,0,0.2)',
+                      transform: isLoading[track.id] ? 'scale(1.05)' : 'scale(1)'                      
+                    }}
+                    aria-label={currentPlaying === track.id ? 'Pausar' : 'Reproducir'}
+                  >
+                    {isLoading[track.id] ? (
+                      <FaSpinner style={{ animation: 'spin 1s linear infinite', fontSize: '16px' }} />
+                    ) : currentPlaying === track.id ? (
+                      <FaPause style={{ fontSize: '16px' }} />
+                    ) : (
+                      <FaPlay style={{ fontSize: '16px', marginLeft: '2px' }} />
+                    )}
+                  </button>
+                  {currentPlaying === track.id && (
+                    <div style={{
+                      position: 'absolute',
+                      bottom: '-18px',
+                      left: '50%',
+                      transform: 'translateX(-50%)',
+                      fontSize: '10px',
+                      color: '#8c44ff',
+                      whiteSpace: 'nowrap'
+                    }}>
+                      Reproduciendo
+                    </div>
+                  )}
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 'bold' }}>
+                    {track.name || track.title || track.fileName}
+                  </div>
+                  <div style={{ fontSize: '0.8em', opacity: '0.7' }}>
+                    {track.duration ? formatDuration(track.duration) : '0:00'} • 
+                    {formatFileSize(track.size || track.fileSize || 0)}
+                  </div>
+                </div>
+              </div>
+            ))
+          ) : status !== 'loading' ? (
+            <div style={{ padding: '15px', backgroundColor: '#292929', borderRadius: '4px' }}>
+              <p>No hay pistas disponibles</p>
+            </div>
+          ) : null}
+        </div>
+
+        {/* Controles de paginación */}
+        {tracks && tracks.length > 0 && (
+          <div style={{
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            marginTop: '30px',
+            gap: '20px'
+          }}>
+            <button
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage <= 1}
+              style={{
+                backgroundColor: currentPage <= 1 ? 'rgba(50, 50, 50, 0.3)' : 'rgba(140, 68, 255, 0.8)',
+                border: 'none',
+                borderRadius: '12px',
+                padding: '12px 20px',
+                cursor: currentPage <= 1 ? 'not-allowed' : 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                transition: 'all 0.2s ease',
+                boxShadow: currentPage <= 1 ? 'none' : '0 4px 12px rgba(140, 68, 255, 0.2)',
+                opacity: currentPage <= 1 ? 0.5 : 1
+              }}
+              onMouseOver={(e) => {
+                if (currentPage > 1) e.currentTarget.style.transform = 'translateY(-2px)';
+              }}
+              onMouseOut={(e) => {
+                e.currentTarget.style.transform = 'translateY(0)';
+              }}
+            >
+              <FaChevronLeft color="white" />
+              <span style={{ color: 'white', marginLeft: '8px', fontWeight: '500' }}>Anterior</span>
+            </button>
+
+            <div style={{ 
+              color: 'white', 
+              fontSize: '16px',
+              fontWeight: '500',
+              backgroundColor: 'rgba(30, 30, 30, 0.6)',
+              padding: '10px 20px',
+              borderRadius: '10px',
+              border: '1px solid rgba(255, 255, 255, 0.1)'
+            }}>
+              Página <span style={{ color: '#8c44ff', fontWeight: 'bold' }}>{currentPage}</span> de {pagination?.totalPages || 1}
+            </div>
+
+            <button
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={pagination && currentPage >= pagination.totalPages}
+              style={{
+                backgroundColor: (pagination && currentPage >= pagination.totalPages) ? 
+                  'rgba(50, 50, 50, 0.3)' : 'rgba(140, 68, 255, 0.8)',
+                border: 'none',
+                borderRadius: '12px',
+                padding: '12px 20px',
+                cursor: (pagination && currentPage >= pagination.totalPages) ? 'not-allowed' : 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                transition: 'all 0.2s ease',
+                boxShadow: (pagination && currentPage >= pagination.totalPages) ? 
+                  'none' : '0 4px 12px rgba(140, 68, 255, 0.2)',
+                opacity: (pagination && currentPage >= pagination.totalPages) ? 0.5 : 1
+              }}
+              onMouseOver={(e) => {
+                if (!(pagination && currentPage >= pagination.totalPages)) {
+                  e.currentTarget.style.transform = 'translateY(-2px)';
+                }
+              }}
+              onMouseOut={(e) => {
+                e.currentTarget.style.transform = 'translateY(0)';
+              }}
+            >
+              <span style={{ color: 'white', marginRight: '8px', fontWeight: '500' }}>Siguiente</span>
+              <FaChevronRight color="white" />
+            </button>
+          </div>
+        )}
+      </div>
+      <style>{`
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
+    </div>
+  );
+};
+
+export default HomePage;

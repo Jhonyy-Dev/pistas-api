@@ -1,0 +1,176 @@
+.track-item {
+  display: flex;
+  align-items: center;
+  padding: var(--spacing-sm) var(--spacing-md);
+  background-color: var(--color-surface);
+  border-radius: var(--border-radius);
+  transition: all 0.3s ease;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.track-item:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+  transform: translateY(-2px);
+}
+
+.track-item.active {
+  background-color: rgba(98, 0, 238, 0.1);
+  border-left: 3px solid var(--color-primary);
+}
+
+.track-play-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background-color: rgba(255, 255, 255, 0.1);
+  color: var(--color-text);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  margin-right: var(--spacing-md);
+  flex-shrink: 0;
+}
+
+/* Estilo para el botón cuando está activo pero pausado */
+.track-play-button.active {
+  background-color: var(--color-primary-dark, #4e00b0);
+  box-shadow: 0 0 8px rgba(98, 0, 238, 0.5);
+}
+
+/* Estilo para el botón cuando está en reproducción */
+.track-play-button.active.playing {
+  background-color: var(--color-primary);
+  animation: pulse 2s infinite;
+}
+
+/* Estilo para el botón en estado de carga */
+.track-play-button.loading {
+  animation: spin 1s infinite linear;
+  background-color: var(--color-secondary, #03dac6);
+}
+
+.track-play-button:hover {
+  background-color: var(--color-primary);
+  transform: scale(1.1);
+}
+
+/* Animación de pulso para indicar reproducción activa */
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(98, 0, 238, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(98, 0, 238, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(98, 0, 238, 0);
+  }
+}
+
+/* Animación de giro para estado de carga */
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Texto de estado (reproduciendo/pausado) */
+.status-text {
+  position: absolute;
+  font-size: 0.6rem;
+  bottom: -16px;
+  white-space: nowrap;
+  opacity: 0.8;
+}
+
+.track-info {
+  flex: 1;
+  min-width: 0; /* Para evitar que el texto desborde */
+  cursor: pointer;
+}
+
+.track-title {
+  font-weight: 500;
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  position: relative;
+  padding-right: 15px; /* Espacio para indicador */
+}
+
+/* Indicador de pista activa (punto verde) */
+.active-indicator {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 8px;
+  height: 8px;
+  background-color: #4CAF50;
+  border-radius: 50%;
+  animation: pulse-green 2s infinite;
+}
+
+@keyframes pulse-green {
+  0% {
+    box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 5px rgba(76, 175, 80, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(76, 175, 80, 0);
+  }
+}
+
+.track-item.active .track-title {
+  color: var(--color-primary-light);
+}
+
+.track-meta {
+  display: flex;
+  gap: var(--spacing-md);
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+}
+
+.track-duration, .track-size, .track-plays {
+  display: flex;
+  align-items: center;
+}
+
+.track-actions {
+  display: flex;
+  align-items: center;
+  margin-left: var(--spacing-sm);
+}
+
+.info-button {
+  background-color: transparent;
+  color: var(--color-text-secondary);
+  border: none;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.info-button:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: var(--color-primary-light);
+}
+
+@media screen and (max-width: 768px) {
+  .track-meta {
+    flex-direction: column;
+    gap: 2px;
+  }
+}
