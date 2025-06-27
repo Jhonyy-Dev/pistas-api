@@ -54,11 +54,11 @@ RUN cd /app/api && npm install
 ENV PORT=8081
 ENV NODE_ENV=production
 ENV DATABASE_URL="postgres://postgres:postgres@localhost:5432/postgres"
-ENV CORS_ORIGIN="https://example.com"
-ENV B2_APPLICATION_KEY="placeholder"
-ENV B2_BUCKET_NAME="placeholder"
-ENV B2_ENDPOINT="placeholder"
-ENV B2_REGION="us-west-000"
+ENV CORS_ORIGIN="*"
+ENV B2_APPLICATION_KEY="005637a24248f210000000001:K005pGnpw7tRrnTMIAleGDv00UNdPJI"
+ENV B2_BUCKET_NAME="pistas"
+ENV B2_ENDPOINT="s3.us-east-005.backblazeb2.com"
+ENV B2_REGION="us-east-005"
 
 # Expose port
 EXPOSE 8081
