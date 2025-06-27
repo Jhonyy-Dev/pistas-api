@@ -39,20 +39,27 @@ function validateEnv() {
 module.exports = validateEnv;
 EOL
 
-# Crear el archivo logger.js
+# Crear el archivo logger.js sin dependencias externas
 cat > /app/api/utils/logger.js << 'EOL'
-const winston = require("winston");
-
-const logger = winston.createLogger({
-  level: process.env.LOG_LEVEL || "info",
-  format: winston.format.combine(
-    winston.format.timestamp(),
-    winston.format.json()
-  ),
-  transports: [
-    new winston.transports.Console()
-  ],
-});
+/**
+ * Logger simple que usa console.log para evitar dependencias externas
+ */
+const logger = {
+  info: (message, meta = {}) => {
+    console.log(`[INFO] ${new Date().toISOString()} - ${message}`, meta);
+  },
+  error: (message, meta = {}) => {
+    console.error(`[ERROR] ${new Date().toISOString()} - ${message}`, meta);
+  },
+  warn: (message, meta = {}) => {
+    console.warn(`[WARN] ${new Date().toISOString()} - ${message}`, meta);
+  },
+  debug: (message, meta = {}) => {
+    if (process.env.NODE_ENV !== 'production') {
+      console.debug(`[DEBUG] ${new Date().toISOString()} - ${message}`, meta);
+    }
+  }
+};
 
 module.exports = logger;
 EOL
