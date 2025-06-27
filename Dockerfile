@@ -1,36 +1,23 @@
-FROM node:18 AS build
+FROM node:18
 
 # Crear directorio de la aplicación
 WORKDIR /app
 
-# Copiar package.json y package-lock.json
-COPY web/package*.json ./
+# Copiar package.json y package-lock.json de la API
+COPY api/package*.json ./
 
 # Instalar dependencias
 RUN npm install
 
-# Copiar el código fuente
-COPY web/ ./
-
-# Construir la aplicación
-RUN npm run build
-
-# Etapa de producción
-FROM node:18-slim
-
-WORKDIR /app
-
-# Copiar archivos de construcción desde la etapa anterior
-COPY --from=build /app/dist ./dist
-COPY --from=build /app/package.json ./
-COPY --from=build /app/node_modules ./node_modules
+# Copiar el código fuente de la API
+COPY api ./
 
 # Variables de entorno
-ENV PORT=3000
+ENV PORT=8081
 ENV NODE_ENV=production
 
 # Exponer puerto
-EXPOSE 3000
+EXPOSE 8081
 
-# Iniciar la aplicación
-CMD ["npm", "run", "preview"]
+# Iniciar la API
+CMD ["node", "src/index.js"]
