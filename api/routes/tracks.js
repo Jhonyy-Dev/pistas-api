@@ -149,7 +149,7 @@ router.post('/sync', async (req, res, next) => {
   }
 });
 
-// ENDPOINT DE STREAMING DIRECTO - SOLUCIÓN DEFINITIVA
+// ENDPOINT DE STREAMING DIRECTO - SOLUCIÓN CON PROXY COMPLETO
 router.get('/direct-stream/:id', async (req, res) => {
   try {
     const trackId = req.params.id;
@@ -159,34 +159,51 @@ router.get('/direct-stream/:id', async (req, res) => {
       return res.status(404).send('Pista no encontrada');
     }
     
-    console.log(`Streaming directo para: ${track.filename} (ID: ${trackId})`);
+    console.log(`Streaming para: ${track.filename} (ID: ${trackId})`);
     
-    // SOLUCIÓN DEFINITIVA SIMPLIFICADA: Redireccionar directamente a la URL firmada
+    // SOLUCIÓN DEFINITIVA CON PROXY COMPLETO: La API actúa como intermediaria
     try {
       // Depurar credenciales y configuración
       console.log('Configuración de B2:');
       console.log(`- Bucket: ${BUCKET_NAME}`);
       console.log(`- Endpoint: ${process.env.B2_ENDPOINT || 'NO DEFINIDO'}`);
-      console.log('- Protocolo: HTTP (forzado para compatibilidad con reproductores)');
+      console.log('- Proxy mode: Streaming directo mediante pipe');
 
       // Probar a decodificar el nombre de archivo
       const decodedFileName = decodeURIComponent(track.filename);
       console.log(`- Nombre archivo original: ${track.filename}`);
       console.log(`- Nombre archivo decodificado: ${decodedFileName}`);
 
-      // Generar URL firmada - sin proxy intermedio
-      const url = s3.getSignedUrl('getObject', {
+      // Configurar parámetros para obtener el archivo de B2
+      const params = {
         Bucket: BUCKET_NAME,
-        Key: decodedFileName,
-        Expires: 3600, // 1 hora
-        ResponseContentType: 'audio/mpeg', // Forzar tipo de contenido correcto
-        ResponseContentDisposition: 'inline' // Forzar reproducción en lugar de descarga
+        Key: decodedFileName
+      };
+      
+      console.log('Solicitando archivo a B2 mediante proxy streaming...');
+      
+      // Importante: Establecer las cabeceras correctas para el streaming
+      res.setHeader('Content-Type', 'audio/mpeg');
+      res.setHeader('Content-Disposition', 'inline');
+      res.setHeader('Accept-Ranges', 'bytes');
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      
+      // Obtener el archivo como stream y enviarlo directamente al cliente
+      // Esto evita problemas de CORS/HTTPS porque el contenido viene del mismo origen
+      const fileStream = s3.getObject(params).createReadStream();
+      
+      // Manejar eventos del stream
+      fileStream.on('error', (err) => {
+        console.error('Error en stream de B2:', err);
+        if (!res.headersSent) {
+          res.status(500).send('Error al obtener el archivo de audio');
+        }
       });
       
-      console.log('URL firmada generada:', url.substring(0, 100) + '...');
+      // Stream directo al cliente (pipe)
+      fileStream.pipe(res);
       
-      // Redirigir directamente a la URL firmada - esto evita problemas de proxy
-      return res.redirect(url);
+      // No hacer return ya que el pipe maneja la respuesta
     } catch (error) {
       console.error('Error al generar URL firmada:', error);
       return res.status(500).send('Error al generar URL de streaming');
