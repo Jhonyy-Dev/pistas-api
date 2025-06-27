@@ -149,30 +149,44 @@ router.post('/sync', async (req, res, next) => {
   }
 });
 
-// ENDPOINT DE STREAMING DIRECTO - SOLUCIÓN CON PROXY COMPLETO
+// ENDPOINT DE STREAMING DIRECTO - SOLUCIÓN CON PROXY COMPLETO Y LOGS DETALLADOS
 router.get('/direct-stream/:id', async (req, res) => {
   try {
+    console.log('========== INICIO DE SOLICITUD DE STREAMING ==========');
+    console.log(`Fecha/Hora: ${new Date().toISOString()}`);
+    console.log(`IP Cliente: ${req.ip}`);
+    console.log(`User-Agent: ${req.headers['user-agent']}`);
+    console.log(`Headers completos: ${JSON.stringify(req.headers, null, 2)}`);
+    
     const trackId = req.params.id;
+    console.log(`ID de pista solicitada: ${trackId}`);
+    
     const track = await Track.findByPk(trackId);
     
     if (!track) {
+      console.log(`ERROR: Pista con ID ${trackId} no encontrada en la base de datos`);
       return res.status(404).send('Pista no encontrada');
     }
     
-    console.log(`Streaming para: ${track.filename} (ID: ${trackId})`);
+    console.log(`TRACK ENCONTRADO: ${track.title} | Filename: ${track.filename} | ID: ${trackId}`);
     
     // SOLUCIÓN DEFINITIVA CON PROXY COMPLETO: La API actúa como intermediaria
     try {
-      // Depurar credenciales y configuración
-      console.log('Configuración de B2:');
+      // Depurar credenciales y configuración completa
+      console.log('CONFIGURACIÓN COMPLETA:');
       console.log(`- Bucket: ${BUCKET_NAME}`);
       console.log(`- Endpoint: ${process.env.B2_ENDPOINT || 'NO DEFINIDO'}`);
-      console.log('- Proxy mode: Streaming directo mediante pipe');
+      console.log(`- Access Key (parcial): ${process.env.B2_ACCESS_KEY ? '***' + process.env.B2_ACCESS_KEY.substring(process.env.B2_ACCESS_KEY.length - 4) : 'NO DEFINIDO'}`);
+      console.log(`- Secret Key: ${process.env.B2_SECRET_KEY ? '***OCULTA***' : 'NO DEFINIDA'}`); 
+      console.log(`- Entorno: ${process.env.NODE_ENV}`);
+      console.log(`- API URL: ${process.env.API_URL}`);
+      console.log('- Modo: Proxy streaming directo mediante pipe');
 
       // Probar a decodificar el nombre de archivo
       const decodedFileName = decodeURIComponent(track.filename);
-      console.log(`- Nombre archivo original: ${track.filename}`);
-      console.log(`- Nombre archivo decodificado: ${decodedFileName}`);
+      console.log(`- Archivo original: ${track.filename}`);
+      console.log(`- Archivo decodificado: ${decodedFileName}`);
+      console.log(`- URL en BD: ${track.b2FileUrl || 'No hay URL en BD'}`);
 
       // Configurar parámetros para obtener el archivo de B2
       const params = {
@@ -180,33 +194,78 @@ router.get('/direct-stream/:id', async (req, res) => {
         Key: decodedFileName
       };
       
-      console.log('Solicitando archivo a B2 mediante proxy streaming...');
+      console.log(`SOLICITANDO ARCHIVO: Bucket=${BUCKET_NAME}, Key=${decodedFileName}`);
       
       // Importante: Establecer las cabeceras correctas para el streaming
-      res.setHeader('Content-Type', 'audio/mpeg');
-      res.setHeader('Content-Disposition', 'inline');
-      res.setHeader('Accept-Ranges', 'bytes');
-      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      console.log('CONFIGURANDO CABECERAS HTTP PARA STREAMING:');
+      
+      // Definir y registrar todas las cabeceras
+      const headers = {
+        'Content-Type': 'audio/mpeg',
+        'Content-Disposition': 'inline',
+        'Accept-Ranges': 'bytes',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'X-Content-Type-Options': 'nosniff',
+        'Cross-Origin-Resource-Policy': 'cross-origin',
+        'Cross-Origin-Embedder-Policy': 'require-corp',
+        'Access-Control-Allow-Origin': '*'
+      };
+      
+      // Aplicar todas las cabeceras
+      Object.entries(headers).forEach(([key, value]) => {
+        res.setHeader(key, value);
+        console.log(`- Cabecera: ${key} = ${value}`);
+      });
+      
+      console.log('INICIANDO STREAM DESDE B2 AL CLIENTE...');
       
       // Obtener el archivo como stream y enviarlo directamente al cliente
       // Esto evita problemas de CORS/HTTPS porque el contenido viene del mismo origen
-      const fileStream = s3.getObject(params).createReadStream();
-      
-      // Manejar eventos del stream
-      fileStream.on('error', (err) => {
-        console.error('Error en stream de B2:', err);
-        if (!res.headersSent) {
-          res.status(500).send('Error al obtener el archivo de audio');
-        }
-      });
-      
-      // Stream directo al cliente (pipe)
-      fileStream.pipe(res);
-      
-      // No hacer return ya que el pipe maneja la respuesta
+      try {
+        const fileStream = s3.getObject(params).createReadStream();
+        console.log('Stream creado correctamente');
+        
+        // Registrar eventos del stream para debugging
+        let bytesStreamed = 0;
+        
+        fileStream.on('data', (chunk) => {
+          bytesStreamed += chunk.length;
+          if (bytesStreamed % (512 * 1024) === 0) { // Log cada 512KB
+            console.log(`Streaming en progreso: ${(bytesStreamed/1024/1024).toFixed(2)}MB transferidos`);
+          }
+        });
+        
+        // Manejar errores del stream
+        fileStream.on('error', (err) => {
+          console.error(`ERROR EN STREAM: ${err.message}`);
+          console.error(JSON.stringify(err, null, 2));
+          if (!res.headersSent) {
+            res.status(500).send(`Error al obtener el archivo de audio: ${err.message}`);
+          }
+        });
+        
+        // Log al finalizar el stream
+        fileStream.on('end', () => {
+          console.log(`STREAM COMPLETADO: Total ${(bytesStreamed/1024/1024).toFixed(2)}MB transferidos`);
+          console.log('========== FIN DE STREAMING ==========');
+        });
+        
+        // Stream directo al cliente (pipe)
+        console.log('Conectando stream al cliente mediante pipe...');
+        fileStream.pipe(res);
+        
+        // No hacer return ya que el pipe maneja la respuesta
+      } catch (streamError) {
+        console.error(`ERROR AL CREAR STREAM: ${streamError.message}`);
+        console.error(JSON.stringify(streamError, null, 2));
+        return res.status(500).send(`Error al iniciar streaming: ${streamError.message}`);
+      }
     } catch (error) {
-      console.error('Error al generar URL firmada:', error);
-      return res.status(500).send('Error al generar URL de streaming');
+      console.error('ERROR EN PROCESO DE STREAMING:');
+      console.error(`- Mensaje: ${error.message}`);
+      console.error(`- Stack: ${error.stack}`);
+      console.error(JSON.stringify(error, null, 2));
+      return res.status(500).send(`Error en streaming: ${error.message}`);
     }
   } catch (error) {
     console.error('Error en endpoint direct-stream:', error);
