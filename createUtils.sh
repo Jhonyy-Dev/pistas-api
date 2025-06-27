@@ -1,8 +1,10 @@
 #!/bin/bash
 
-# Crear directorios necesarios
+# Crear directorios necesarios en ambas ubicaciones
 mkdir -p /app/api/utils
 mkdir -p /app/api/middlewares
+mkdir -p /app/utils
+mkdir -p /app/middlewares
 
 # Crear el archivo validateEnv.js
 cat > /app/api/utils/validateEnv.js << 'EOL'
@@ -230,8 +232,75 @@ function requestLogger(req, res, next) {
 module.exports = requestLogger;
 EOL
 
+# Duplicar todos los archivos en la raíz del proyecto
+echo "Duplicando archivos en la raíz del proyecto..."
+cp /app/api/utils/validateEnv.js /app/utils/
+cp /app/api/utils/logger.js /app/utils/
+cp /app/api/utils/errorHandler.js /app/utils/ 2>/dev/null || true
+cp /app/api/middlewares/rateLimiter.js /app/middlewares/
+cp /app/api/middlewares/securityHeaders.js /app/middlewares/
+cp /app/api/middlewares/requestLogger.js /app/middlewares/
+
+# Crear archivo errorHandler.js directamente en la raíz si no existe
+cat > /app/utils/errorHandler.js << 'EOL'
+/**
+ * Configura manejadores de errores globales para la aplicación
+ */
+
+const logger = require('./logger');
+
+function setupErrorHandlers(options = {}) {
+  const { exitOnUncaught = true } = options;
+
+  // Manejar errores no capturados en promesas
+  process.on('unhandledRejection', (reason, promise) => {
+    logger.error('Promesa rechazada no manejada:', {
+      reason,
+      stack: reason.stack || 'No stack trace disponible',
+      promise
+    });
+    // No terminar el proceso para que la aplicación pueda continuar
+  });
+
+  // Manejar excepciones no capturadas
+  process.on('uncaughtException', (error) => {
+    logger.error('Excepción no capturada:', {
+      error: error.message,
+      stack: error.stack || 'No stack trace disponible'
+    });
+
+    if (exitOnUncaught) {
+      logger.error('Cerrando la aplicación por error crítico');
+      // Dar tiempo para registrar el error antes de salir
+      setTimeout(() => process.exit(1), 1000);
+    }
+  });
+
+  // Middleware para manejar errores en Express
+  return function errorHandler(err, req, res, next) {
+    const statusCode = err.statusCode || 500;
+    
+    logger.error(`Error en ruta ${req.method} ${req.path}:`, {
+      error: err.message,
+      stack: err.stack || 'No stack trace disponible',
+      statusCode
+    });
+
+    res.status(statusCode).json({
+      error: true,
+      message: process.env.NODE_ENV === 'production' 
+        ? 'Error interno del servidor' 
+        : err.message
+    });
+  };
+}
+
+module.exports = setupErrorHandlers;
+EOL
+
 # Mostrar los archivos creados
 echo "Archivos creados:"
-ls -la /app/api/utils/
-cat /app/api/utils/validateEnv.js | head -5
-cat /app/api/utils/logger.js | head -5
+ls -la /app/utils/
+ls -la /app/middlewares/
+cat /app/utils/validateEnv.js | head -5
+cat /app/utils/logger.js | head -5
