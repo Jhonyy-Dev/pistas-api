@@ -20,5 +20,6 @@ ENV NODE_ENV=production
 # Expose port
 EXPOSE 8081
 
-# Start API
-CMD ["node", "api/index.js"]
+# Start API - Change to api directory first
+WORKDIR /app/api
+CMD ["node", "index.js"]
