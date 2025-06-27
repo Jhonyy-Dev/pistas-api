@@ -20,4 +20,4 @@ ENV NODE_ENV=production
 EXPOSE 8081
 
 # Iniciar la API
-CMD ["node", "src/index.js"]
+CMD ["node", "index.js"]
