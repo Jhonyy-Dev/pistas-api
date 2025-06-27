@@ -6,42 +6,46 @@ WORKDIR /app
 # Copy all files
 COPY . .
 
-# Debug - show directory structure
+# Debug - show detailed directory structure
 RUN echo "==== DIRECTORY STRUCTURE BEFORE SETUP ===="
 RUN ls -la
 RUN ls -la api || echo "API directory not found!"
-RUN find . -name "index.js" -type f || echo "No index.js files found!"
+RUN echo "==== Checking for utils directory ===="
+RUN find . -name "utils" -type d || echo "No utils directory found!"
+RUN find . -name "validateEnv.js" -type f || echo "No validateEnv.js file found!"
+RUN echo "==== Content of api/utils if exists ===="
+RUN ls -la api/utils || echo "api/utils directory not accessible"
 
-# Create temporary directory for api setup
-RUN mkdir -p /app/api_temp
+# Simpler and more direct approach - copy specific folders directly to ensure paths
+RUN mkdir -p /app/api/utils
+RUN find . -name "validateEnv.js" -type f -exec cp {} /app/api/utils/ \;
+RUN find . -name "logger.js" -type f -exec cp {} /app/api/utils/ \;
 
-# Copy index.js from root to api_temp if exists
-RUN if [ -f "/app/index.js" ]; then cp /app/index.js /app/api_temp/ && echo "Copied index.js from root"; fi
+# Copy index.js directly to api folder
+RUN if [ -f "/app/api/index.js" ]; then echo "index.js exists in api folder"; else echo "index.js NOT found in api folder!"; fi
+RUN if [ -f "/app/index.js" ]; then cp /app/index.js /app/api/index.js && echo "Copied index.js from root to api"; fi
 
-# Copy utils directory if exists
-RUN if [ -d "/app/api/utils" ]; then cp -r /app/api/utils /app/api_temp/ && echo "Copied utils directory"; fi
+# Copy all important directories to ensure they exist
+RUN mkdir -p /app/api/middlewares /app/api/routes /app/api/models /app/api/config
 
-# Copy all directories from api to api_temp
-RUN if [ -d "/app/api/config" ]; then cp -r /app/api/config /app/api_temp/ && echo "Copied config directory"; fi
-RUN if [ -d "/app/api/database" ]; then cp -r /app/api/database /app/api_temp/ && echo "Copied database directory"; fi
-RUN if [ -d "/app/api/middlewares" ]; then cp -r /app/api/middlewares /app/api_temp/ && echo "Copied middlewares directory"; fi
-RUN if [ -d "/app/api/models" ]; then cp -r /app/api/models /app/api_temp/ && echo "Copied models directory"; fi
-RUN if [ -d "/app/api/routes" ]; then cp -r /app/api/routes /app/api_temp/ && echo "Copied routes directory"; fi
-RUN if [ -d "/app/api/scripts" ]; then cp -r /app/api/scripts /app/api_temp/ && echo "Copied scripts directory"; fi
-RUN if [ -d "/app/api/src" ]; then cp -r /app/api/src /app/api_temp/ && echo "Copied src directory"; fi
+# Copy specific directories from api to ensure paths
+RUN cp -r api/middlewares/* /app/api/middlewares/ || echo "No middlewares to copy"
+RUN cp -r api/routes/* /app/api/routes/ || echo "No routes to copy"
+RUN cp -r api/models/* /app/api/models/ || echo "No models to copy"
+RUN cp -r api/config/* /app/api/config/ || echo "No config to copy"
+
+# Ensure all files needed by index.js are available
+RUN cp -r api/utils/* /app/api/utils/ || echo "No utils to copy - this is critical"
 
 # Copy package.json and env files
-RUN if [ -f "/app/api/package.json" ]; then cp /app/api/package.json /app/api_temp/ && echo "Copied package.json"; fi
-RUN if [ -f "/app/api/.env.production" ]; then cp /app/api/.env.production /app/api_temp/.env && echo "Copied .env.production"; fi
+RUN cp api/package.json /app/api/ || echo "No package.json found in api directory"
+RUN if [ -f "api/.env.production" ]; then cp api/.env.production /app/api/.env && echo "Copied .env.production"; fi
 
-# Remove old api directory and replace with new one
-RUN rm -rf /app/api || echo "No api directory to remove"
-RUN mv /app/api_temp /app/api
-
-# Show final directory structure
-RUN echo "==== FINAL DIRECTORY STRUCTURE ===="
-RUN find /app -type d | sort
-RUN ls -la /app/api/
+# Debug the specific module that's causing problems
+RUN echo "==== Checking utils module files after setup ===="
+RUN ls -la /app/api/utils/ || echo "Utils directory doesn't exist or is empty!"
+RUN cat /app/api/utils/validateEnv.js || echo "validateEnv.js file doesn't exist or is empty!"
+RUN cat /app/api/index.js | grep -n "require" || echo "No require statements found in index.js"
 
 # Install dependencies
 RUN cd /app/api && npm install
@@ -49,6 +53,12 @@ RUN cd /app/api && npm install
 # Environment variables
 ENV PORT=8081
 ENV NODE_ENV=production
+ENV DATABASE_URL="postgres://postgres:postgres@localhost:5432/postgres"
+ENV CORS_ORIGIN="https://example.com"
+ENV B2_APPLICATION_KEY="placeholder"
+ENV B2_BUCKET_NAME="placeholder"
+ENV B2_ENDPOINT="placeholder"
+ENV B2_REGION="us-west-000"
 
 # Expose port
 EXPOSE 8081
