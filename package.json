@@ -1,0 +1,36 @@
+{
+  "name": "pistas-chiveras-api",
+  "version": "1.0.0",
+  "description": "API para streaming de música MP3 con Backblaze B2",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js",
+    "predeployment": "node scripts/predeployment.js",
+    "predeploy": "npm run predeployment",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "music",
+    "streaming",
+    "backblaze",
+    "api"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "aws-sdk": "^2.1431.0",
+    "axios": "^1.10.0",
+    "backblaze-b2": "^1.7.1",
+    "compression": "^1.8.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.5.0",
+    "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.2",
+    "mysql2": "^3.14.1",
+    "sequelize": "^6.32.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  }
+}

@@ -1,0 +1,56 @@
+.about-page {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: var(--spacing-lg) 0;
+}
+
+.about-page h1 {
+  font-size: 2rem;
+  margin-bottom: var(--spacing-xl);
+  text-align: center;
+  color: var(--color-primary-light);
+}
+
+.about-section {
+  margin-bottom: var(--spacing-xl);
+  background-color: var(--color-surface);
+  padding: var(--spacing-lg);
+  border-radius: var(--border-radius);
+}
+
+.about-section h2 {
+  font-size: 1.5rem;
+  margin-bottom: var(--spacing-md);
+  color: var(--color-secondary);
+}
+
+.about-section p {
+  line-height: 1.7;
+  color: var(--color-text-secondary);
+}
+
+.features-list {
+  list-style-type: none;
+  padding: 0;
+}
+
+.features-list li {
+  margin-bottom: var(--spacing-lg);
+}
+
+.features-list li strong {
+  display: block;
+  margin-bottom: var(--spacing-xs);
+  font-size: 1.1rem;
+  color: var(--color-primary-light);
+}
+
+.features-list li p {
+  margin-top: var(--spacing-xs);
+}
+
+@media screen and (max-width: 768px) {
+  .about-page {
+    padding: var(--spacing-md);
+  }
+}

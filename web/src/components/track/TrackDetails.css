@@ -1,0 +1,101 @@
+.track-details {
+  background-color: var(--color-surface);
+  border-radius: var(--border-radius);
+  padding: var(--spacing-lg);
+  margin-bottom: var(--spacing-lg);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.track-details:hover {
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
+}
+
+.track-details.active {
+  border-left: 3px solid var(--color-primary);
+  background-color: rgba(98, 0, 238, 0.1);
+}
+
+.track-title-container {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--spacing-lg);
+}
+
+.track-title-container h3 {
+  margin-bottom: 0;
+  font-size: 1.5rem;
+  color: var(--color-text);
+  flex: 1;
+  min-width: 200px;
+}
+
+.track-actions {
+  display: flex;
+  gap: var(--spacing-sm);
+}
+
+.play-button {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  background-color: var(--color-primary);
+  border: none;
+  color: white;
+  padding: var(--spacing-xs) var(--spacing-md);
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  font-weight: 500;
+  transition: background-color 0.3s ease;
+}
+
+.play-button:hover {
+  background-color: var(--color-primary-dark);
+}
+
+.track-details-body {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: var(--spacing-md);
+}
+
+.track-detail-item {
+  padding: var(--spacing-sm);
+  background-color: rgba(255, 255, 255, 0.05);
+  border-radius: var(--border-radius);
+}
+
+.detail-label {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  color: var(--color-text-secondary);
+  font-size: 0.8rem;
+  margin-bottom: var(--spacing-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.detail-value {
+  font-size: 1rem;
+  color: var(--color-text);
+}
+
+.filename {
+  font-family: monospace;
+  font-size: 0.9rem;
+  word-break: break-all;
+}
+
+@media screen and (max-width: 768px) {
+  .track-details-body {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media screen and (max-width: 480px) {
+  .track-details-body {
+    grid-template-columns: 1fr;
+  }
+}

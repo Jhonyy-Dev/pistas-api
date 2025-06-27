@@ -1,0 +1,8 @@
+[phases.setup]
+aptPkgs = ["nodejs"]
+createTags = ["nodejs"]
+
+[start]
+provides = ["web"]
+cmd = "echo 'Por favor configura dos servicios separados en Railway'"
+
