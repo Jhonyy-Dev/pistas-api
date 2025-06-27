@@ -1,13 +1,16 @@
 FROM node:18
 
-# Crear directorio de la aplicación
-WORKDIR /app
+# Crear directorio para la API
+WORKDIR /app/api
 
-# Copiar los archivos de la API
-COPY api/ .
+# Copiar primero package.json y package-lock.json para aprovechar el caché de Docker
+COPY api/package*.json ./
 
 # Instalar dependencias
 RUN npm install
+
+# Copiar el resto de los archivos de la API
+COPY api/ ./
 
 # Variables de entorno
 ENV PORT=8081
