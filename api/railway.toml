@@ -1,0 +1,23 @@
+[build]
+builder = "NIXPACKS"
+buildCommand = "npm ci --only=production"
+
+[deploy]
+startCommand = "npm start"
+restartPolicyType = "ON_FAILURE"
+healthcheckPath = "/api/health"
+healthcheckTimeout = 300
+restartPolicyMaxRetries = 5
+
+# Configuración para la colección de 4000+ canciones
+[variables]
+NODE_ENV = "production"
+PAGE_SIZE = "50"
+TOTAL_PAGES = "80"
+
+# Optimizaciones para Node.js en producción
+[phases.setup]
+cmdString = "export NODE_OPTIONS='--max-old-space-size=512'"
+
+[phases.build.cache]
+paths = ["node_modules/.cache"]
