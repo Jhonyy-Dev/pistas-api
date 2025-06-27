@@ -3,11 +3,14 @@ FROM node:18
 # Use working directory in app
 WORKDIR /app
 
-# Copy entire api folder contents
-COPY api /app
+# Copy package.json from root directory
+COPY package.json /app/
 
 # Install dependencies
 RUN npm install
+
+# Copy entire api folder contents (except package.json, which we already copied)
+COPY api /app
 
 # Environment variables
 ENV PORT=8081
