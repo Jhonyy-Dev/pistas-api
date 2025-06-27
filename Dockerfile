@@ -7,7 +7,7 @@ WORKDIR /app
 COPY api/package*.json ./api/
 
 # Instalar dependencias solo de la API
-RUN cd api && npm install
+RUN npm start
 
 # Copiar código fuente de la API
 COPY api ./api
