@@ -1,29 +1,20 @@
 FROM node:18
 
-# Crear directorio de la aplicación
+# Use working directory in app
 WORKDIR /app
 
-# DEBUG: Ver los directorios que se copian
-RUN ls -la
+# Copy entire api folder contents
+COPY api /app
 
-# Copiar todos los archivos de la API a la raíz
-COPY api/ /app/
-
-# DEBUG: Ver los archivos que se copiaron
-RUN ls -la
-
-# DEBUG: Ver si existe el package.json
-RUN cat package.json || echo "package.json not found"
-
-# Instalar dependencias
+# Install dependencies
 RUN npm install
 
-# Variables de entorno
+# Environment variables
 ENV PORT=8081
 ENV NODE_ENV=production
 
-# Exponer puerto
+# Expose port
 EXPOSE 8081
 
-# Iniciar la API
+# Start API
 CMD ["node", "index.js"]
