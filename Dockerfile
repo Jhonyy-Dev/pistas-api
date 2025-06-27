@@ -53,7 +53,7 @@ RUN cd /app/api && npm install
 # Environment variables
 ENV PORT=8081
 ENV NODE_ENV=production
-ENV DATABASE_URL="postgres://postgres:postgres@localhost:5432/postgres"
+ENV DATABASE_URL="mysql://u487652187_usuario:Yokarique123@srv1847.hstgr.io/u487652187_web_pistas"
 ENV CORS_ORIGIN="*"
 ENV B2_APPLICATION_KEY="005637a24248f210000000001:K005pGnpw7tRrnTMIAleGDv00UNdPJI"
 ENV B2_BUCKET_NAME="pistas"
