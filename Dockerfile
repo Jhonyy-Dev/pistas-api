@@ -13,13 +13,16 @@ RUN ls -la api || echo "API directory not found!"
 RUN echo "==== Checking for utils directory ===="
 RUN find . -name "utils" -type d || echo "No utils directory found!"
 RUN find . -name "validateEnv.js" -type f || echo "No validateEnv.js file found!"
-RUN echo "==== Content of api/utils if exists ===="
-RUN ls -la api/utils || echo "api/utils directory not accessible"
 
-# Simpler and more direct approach - copy specific folders directly to ensure paths
+# Create necessary directories and setup api structure
 RUN mkdir -p /app/api/utils
-RUN find . -name "validateEnv.js" -type f -exec cp {} /app/api/utils/ \;
-RUN find . -name "logger.js" -type f -exec cp {} /app/api/utils/ \;
+
+# Copy the script and make it executable
+COPY createUtils.sh /app/
+RUN chmod +x /app/createUtils.sh
+
+# Run the script to create files
+RUN /app/createUtils.sh
 
 # Copy index.js directly to api folder
 RUN if [ -f "/app/api/index.js" ]; then echo "index.js exists in api folder"; else echo "index.js NOT found in api folder!"; fi
