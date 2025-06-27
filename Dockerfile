@@ -3,14 +3,11 @@ FROM node:18
 # Crear directorio de la aplicación
 WORKDIR /app
 
-# Copiar package.json y package-lock.json de la API
-COPY api/package*.json ./
+# Copiar los archivos de la API
+COPY api/ .
 
 # Instalar dependencias
 RUN npm install
-
-# Copiar el código fuente de la API
-COPY api ./
 
 # Variables de entorno
 ENV PORT=8081
