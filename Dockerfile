@@ -9,8 +9,17 @@ COPY package.json /app/
 # Install dependencies
 RUN npm install
 
-# Copy entire api folder contents (except package.json, which we already copied)
-COPY api /app
+# Copy individual files and folders from api directory
+COPY api/index.js /app/
+COPY api/config /app/config
+COPY api/database /app/database
+COPY api/middlewares /app/middlewares
+COPY api/models /app/models
+COPY api/routes /app/routes
+COPY api/scripts /app/scripts
+COPY api/src /app/src
+COPY api/utils /app/utils
+COPY api/.env.production /app/.env
 
 # Environment variables
 ENV PORT=8081
