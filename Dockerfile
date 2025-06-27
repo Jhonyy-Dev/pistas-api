@@ -6,64 +6,42 @@ WORKDIR /app
 # Copy all files
 COPY . .
 
-# Debug - show comprehensive directory structure
+# Debug - show directory structure
 RUN echo "==== DIRECTORY STRUCTURE BEFORE SETUP ===="
 RUN ls -la
-RUN ls -la api/ || echo "API directory not found!"
+RUN ls -la api || echo "API directory not found!"
 RUN find . -name "index.js" -type f || echo "No index.js files found!"
 
-# Set up proper directory structure for the app
-RUN echo "==== SETTING UP PROPER DIRECTORY STRUCTURE ===="
+# Create temporary directory for api setup
+RUN mkdir -p /app/api_temp
 
-# Create a setup script to organize files correctly
-RUN echo '#!/bin/sh
+# Copy index.js from root to api_temp if exists
+RUN if [ -f "/app/index.js" ]; then cp /app/index.js /app/api_temp/ && echo "Copied index.js from root"; fi
 
-# Make sure api directory exists
-mkdir -p /app/api_temp
+# Copy utils directory if exists
+RUN if [ -d "/app/api/utils" ]; then cp -r /app/api/utils /app/api_temp/ && echo "Copied utils directory"; fi
 
-# If index.js exists at root, move it to api directory
-if [ -f "/app/index.js" ]; then
-  echo "Found index.js in root, moving to proper location"
-  mv /app/index.js /app/api_temp/
-fi
+# Copy all directories from api to api_temp
+RUN if [ -d "/app/api/config" ]; then cp -r /app/api/config /app/api_temp/ && echo "Copied config directory"; fi
+RUN if [ -d "/app/api/database" ]; then cp -r /app/api/database /app/api_temp/ && echo "Copied database directory"; fi
+RUN if [ -d "/app/api/middlewares" ]; then cp -r /app/api/middlewares /app/api_temp/ && echo "Copied middlewares directory"; fi
+RUN if [ -d "/app/api/models" ]; then cp -r /app/api/models /app/api_temp/ && echo "Copied models directory"; fi
+RUN if [ -d "/app/api/routes" ]; then cp -r /app/api/routes /app/api_temp/ && echo "Copied routes directory"; fi
+RUN if [ -d "/app/api/scripts" ]; then cp -r /app/api/scripts /app/api_temp/ && echo "Copied scripts directory"; fi
+RUN if [ -d "/app/api/src" ]; then cp -r /app/api/src /app/api_temp/ && echo "Copied src directory"; fi
 
-# If utils directory exists in api, copy it to api_temp
-if [ -d "/app/api/utils" ]; then
-  echo "Found utils directory, copying..."
-  cp -r /app/api/utils /app/api_temp/
-fi
+# Copy package.json and env files
+RUN if [ -f "/app/api/package.json" ]; then cp /app/api/package.json /app/api_temp/ && echo "Copied package.json"; fi
+RUN if [ -f "/app/api/.env.production" ]; then cp /app/api/.env.production /app/api_temp/.env && echo "Copied .env.production"; fi
 
-# Copy all required directories from api to api_temp
-# This ensures everything is in the right place
-for dir in config database middlewares models routes scripts src utils; do
-  if [ -d "/app/api/$dir" ]; then
-    echo "Copying $dir directory"
-    cp -r "/app/api/$dir" "/app/api_temp/"
-  fi
-done
+# Remove old api directory and replace with new one
+RUN rm -rf /app/api || echo "No api directory to remove"
+RUN mv /app/api_temp /app/api
 
-# Copy package.json and other important files
-if [ -f "/app/api/package.json" ]; then
-  cp /app/api/package.json /app/api_temp/
-fi
-
-if [ -f "/app/api/.env.production" ]; then
-  cp /app/api/.env.production /app/api_temp/.env
-fi
-
-# Replace api with api_temp
-rm -rf /app/api
-mv /app/api_temp /app/api
-
-# Show final structure
-echo "==== FINAL DIRECTORY STRUCTURE ===="
-find /app -type d | sort
-ls -la /app/api/
-' > /app/setup.sh
-
-# Execute the setup script
-RUN chmod +x /app/setup.sh
-RUN /app/setup.sh
+# Show final directory structure
+RUN echo "==== FINAL DIRECTORY STRUCTURE ===="
+RUN find /app -type d | sort
+RUN ls -la /app/api/
 
 # Install dependencies
 RUN cd /app/api && npm install
