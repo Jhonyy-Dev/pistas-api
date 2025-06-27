@@ -1,16 +1,22 @@
 FROM node:18
 
-# Crear directorio para la API
-WORKDIR /app/api
+# Crear directorio de la aplicación
+WORKDIR /app
 
-# Copiar primero package.json y package-lock.json para aprovechar el caché de Docker
-COPY api/package*.json ./
+# DEBUG: Ver los directorios que se copian
+RUN ls -la
+
+# Copiar todos los archivos de la API a la raíz
+COPY api/ /app/
+
+# DEBUG: Ver los archivos que se copiaron
+RUN ls -la
+
+# DEBUG: Ver si existe el package.json
+RUN cat package.json || echo "package.json not found"
 
 # Instalar dependencias
 RUN npm install
-
-# Copiar el resto de los archivos de la API
-COPY api/ ./
 
 # Variables de entorno
 ENV PORT=8081
