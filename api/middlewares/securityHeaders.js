@@ -10,19 +10,29 @@ function securityHeaders(req, res, next) {
   // Ayuda a proteger contra ataques XSS al filtrar responsabilidades
   res.setHeader('X-XSS-Protection', '1; mode=block');
   
-  // Impedir que la página aparezca en un iframe (protege contra clickjacking)
-  res.setHeader('X-Frame-Options', 'DENY');
+  // Permitir que la API sea embebida en iframes desde el frontend
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
   
-  // Forzar conexiones HTTPS por al menos 1 año (31536000 segundos) en producción
-  if (process.env.NODE_ENV === 'production') {
+  // IMPORTANTE: Configuraciones para permitir contenido mixto (HTTP en HTTPS)
+  // Estas cabeceras son cruciales para permitir que el reproductor funcione
+  res.setHeader('Cross-Origin-Embedder-Policy', 'unsafe-none'); // Permite cargar recursos sin CORP
+  res.setHeader('Cross-Origin-Opener-Policy', 'unsafe-none'); // Evita problemas de aislamiento
+  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin'); // Permite recursos cross-origin
+  
+  // Configuraciones específicas para streaming de audio
+  if (req.path && (req.path.includes('/stream') || req.path.includes('/direct-stream'))) {
+    // Para rutas de streaming, configuramos cabeceras adicionales
+    res.setHeader('Access-Control-Allow-Private-Network', 'true');
+    res.setHeader('Access-Control-Allow-Origin', '*'); // Permitir acceso desde cualquier origen
+    
+    // No forzamos HTTPS para las rutas de streaming
+  } else if (process.env.NODE_ENV === 'production') {
+    // Para otras rutas, mantenemos la seguridad en producción
     res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
   }
   
-  // Deshabilitar la característica DNS prefetching (opcional)
-  res.setHeader('X-DNS-Prefetch-Control', 'off');
-  
-  // Establecer política de referrer para mejorar la privacidad
-  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  // Establecer política de referrer para mejorar la privacidad pero permitir contenido cross-origin
+  res.setHeader('Referrer-Policy', 'no-referrer-when-downgrade');
   
   // Eliminar la cabecera X-Powered-By (que revela Node.js)
   res.removeHeader('X-Powered-By');

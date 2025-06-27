@@ -89,7 +89,10 @@ router.get('/:id/stream', async (req, res, next) => {
     try {
       // Construir una URL directa a nuestro endpoint de proxy de audio
       // Esta URL evita problemas CORS porque es servida por nuestro propio servidor
-      const baseUrl = process.env.API_URL || `https://localhost:${process.env.PORT || 8081}`;
+      // IMPORTANTE: Usamos HTTP en vez de HTTPS para evitar problemas de reproducción
+      const apiUrl = process.env.API_URL || `http://localhost:${process.env.PORT || 8081}`;
+      // Aseguramos que la URL sea HTTP para garantizar compatibilidad con reproductores
+      const baseUrl = apiUrl.replace('https://', 'http://');
       const directStreamUrl = `${baseUrl}/api/tracks/direct-stream/${track.id}`;
       
       console.log(`URL de streaming directa generada: ${directStreamUrl}`);
@@ -164,6 +167,7 @@ router.get('/direct-stream/:id', async (req, res) => {
       console.log('Configuración de B2:');
       console.log(`- Bucket: ${BUCKET_NAME}`);
       console.log(`- Endpoint: ${process.env.B2_ENDPOINT || 'NO DEFINIDO'}`);
+      console.log('- Protocolo: HTTP (forzado para compatibilidad con reproductores)');
 
       // Probar a decodificar el nombre de archivo
       const decodedFileName = decodeURIComponent(track.filename);
