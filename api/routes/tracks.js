@@ -89,10 +89,24 @@ router.get('/:id/stream', async (req, res, next) => {
     try {
       // Construir una URL directa a nuestro endpoint de proxy de audio
       // Esta URL evita problemas CORS porque es servida por nuestro propio servidor
-      // IMPORTANTE: Usamos HTTP en vez de HTTPS para evitar problemas de reproducción
-      const apiUrl = process.env.API_URL || `http://localhost:${process.env.PORT || 8081}`;
-      // Aseguramos que la URL sea HTTP para garantizar compatibilidad con reproductores
-      const baseUrl = apiUrl.replace('https://', 'http://');
+      
+      // Determinar la URL base adecuada basada en el entorno
+      let baseUrl;
+      
+      if (process.env.NODE_ENV === 'production') {
+        // En producción, usamos la URL de Railway
+        // NOTA: Obtener del hostname de la solicitud si API_URL no está configurado
+        const railwayUrl = process.env.API_URL || 
+                          `https://${req.headers.host || 'pistas-api-nuevo.up.railway.app'}`;
+        
+        console.log(`URL base en producción (Railway): ${railwayUrl}`);
+        baseUrl = railwayUrl;
+      } else {
+        // En desarrollo, usamos localhost
+        baseUrl = `http://localhost:${process.env.PORT || 8081}`;
+        console.log(`URL base en desarrollo (local): ${baseUrl}`);
+      }
+      
       const directStreamUrl = `${baseUrl}/api/tracks/direct-stream/${track.id}`;
       
       console.log(`URL de streaming directa generada: ${directStreamUrl}`);
