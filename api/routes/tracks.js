@@ -199,16 +199,27 @@ router.get('/direct-stream/:id', async (req, res) => {
       // Importante: Establecer las cabeceras correctas para el streaming
       console.log('CONFIGURANDO CABECERAS HTTP PARA STREAMING:');
       
-      // Definir y registrar todas las cabeceras
+      // Definir y registrar todas las cabeceras para máxima compatibilidad
       const headers = {
         'Content-Type': 'audio/mpeg',
         'Content-Disposition': 'inline',
         'Accept-Ranges': 'bytes',
         'Cache-Control': 'no-cache, no-store, must-revalidate',
         'X-Content-Type-Options': 'nosniff',
+        
+        // Cabeceras CORS completas
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, OPTIONS',
+        'Access-Control-Allow-Headers': 'Origin, X-Requested-With, Content-Type, Accept, Range',
+        'Access-Control-Expose-Headers': 'Content-Length, Content-Range',
+        
+        // Políticas Cross-Origin permisivas
         'Cross-Origin-Resource-Policy': 'cross-origin',
-        'Cross-Origin-Embedder-Policy': 'require-corp',
-        'Access-Control-Allow-Origin': '*'
+        'Cross-Origin-Embedder-Policy': 'unsafe-none', // Cambiado de require-corp a unsafe-none
+        'Cross-Origin-Opener-Policy': 'unsafe-none',
+        
+        // Desactivar CSP para este endpoint específico
+        'Content-Security-Policy': "default-src * 'unsafe-inline' 'unsafe-eval' data: blob:"
       };
       
       // Aplicar todas las cabeceras
