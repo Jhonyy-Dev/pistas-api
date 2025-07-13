@@ -1,11 +1,12 @@
 import React from 'react';
 import { Routes, Route } from 'react-router-dom';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import HomePage from './pages/HomePage';
 import SearchPage from './pages/SearchPage';
 import AboutPage from './pages/AboutPage';
 import NotFoundPage from './pages/NotFoundPage';
 import TrackDetailPage from './pages/TrackDetailPage';
+import AudioPlayer from './components/player/AudioPlayer';
 import './App.css';
 
 function App() {
@@ -43,10 +44,14 @@ function App() {
         marginTop: '50px',
         textAlign: 'center',
         padding: '20px 0',
-        borderTop: '1px solid rgba(255,255,255,0.1)' 
+        borderTop: '1px solid rgba(255,255,255,0.1)',
+        marginBottom: '80px' // Añadir margen inferior para dejar espacio al reproductor
       }}>
         <p>&copy; {new Date().getFullYear()} PISTAS CHIVERAS. Todos los derechos reservados.</p>
       </footer>
+      
+      {/* Reproductor fijo en la parte inferior */}
+      <AudioPlayer />
     </div>
   );
 }

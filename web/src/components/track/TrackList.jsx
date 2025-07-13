@@ -2,7 +2,7 @@ import React from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import TrackItem from './TrackItem';
 import { fetchTrackStreamUrl } from '../../store/slices/tracksSlice';
-import { setCurrentTrack, play, setQueue } from '../../store/slices/playerSlice';
+import { setCurrentTrack, play, setQueue, togglePlay } from '../../store/slices/playerSlice';
 import './TrackList.css';
 
 const TrackList = ({ tracks }) => {
@@ -14,8 +14,9 @@ const TrackList = ({ tracks }) => {
   const handlePlayTrack = async (track, index) => {
     // Si ya está activa la pista, solo alternamos play/pause
     if (currentTrack && currentTrack.id === track.id) {
-      // Usar el reducer togglePlay del playerSlice
-      dispatch({ type: 'player/togglePlay' });
+      console.log('Alternando reproducción/pausa para la pista actual');
+      // Usar la acción togglePlay importada del playerSlice
+      dispatch(togglePlay());
       return;
     }
     

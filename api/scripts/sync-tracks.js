@@ -112,6 +112,16 @@ async function syncTracks() {
     let page = 0;
     const maxFiles = 100000; // Límite de seguridad
     
+    // Verificar configuración
+    console.log('Configuración S3:', {
+      endpoint: s3Config.endpoint,
+      region: s3Config.region,
+      bucket: bucketName,
+      // No mostrar credenciales por seguridad
+      hasAccessKey: !!s3Config.accessKeyId,
+      hasSecretKey: !!s3Config.secretAccessKey
+    });
+    
     // Listar archivos con paginación
     do {
       page++;
@@ -128,19 +138,32 @@ async function syncTracks() {
       
       const response = await s3Client.listObjectsV2(listParams).promise();
       
-      // Filtrar solo archivos MP3
-      const mp3Files = response.Contents.filter(file => 
-        file.Key.toLowerCase().endsWith('.mp3')
-      );
+      // Información de depuración
+      console.log(`Respuesta de paginación: IsTruncated=${response.IsTruncated}, NextToken=${response.NextContinuationToken || 'null'}`);
+      console.log(`Total de archivos en esta página (antes de filtrar): ${response.Contents.length}`);
+      console.log(`Prefijo actual: ${listParams.Prefix || 'ninguno'}`);
       
-      allFiles.push(...mp3Files);
+      // Filtrar archivos de audio (múltiples formatos)
+      const audioFormats = ['.mp3', '.wav', '.flac', '.aac', '.ogg', '.m4a'];
+      const audioFiles = response.Contents.filter(file => {
+        const lowerKey = file.Key.toLowerCase();
+        return audioFormats.some(format => lowerKey.endsWith(format));
+      });
+      
+      // Mostrar algunos ejemplos de archivos encontrados
+      if (audioFiles.length > 0) {
+        console.log('Ejemplos de archivos encontrados:');
+        audioFiles.slice(0, 3).forEach(file => console.log(`- ${file.Key}`));
+      }
+      
+      allFiles.push(...audioFiles);
       continuationToken = response.IsTruncated ? response.NextContinuationToken : null;
       
-      console.log(`Encontrados ${mp3Files.length} archivos MP3 en esta página`);
+      console.log(`Encontrados ${audioFiles.length} archivos de audio en esta página`);
       
     } while (continuationToken && allFiles.length < maxFiles);
     
-    console.log(`Total de archivos MP3 encontrados: ${allFiles.length}`);
+    console.log(`Total de archivos de audio encontrados: ${allFiles.length}`);
     
     // Insertar o actualizar archivos en la base de datos
     let processed = 0;

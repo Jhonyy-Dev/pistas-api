@@ -1,213 +1,433 @@
+/* Estilo básico del reproductor - minimalista como en la imagen */
 .audio-player {
   position: fixed;
   bottom: 0;
   left: 0;
   right: 0;
-  background-color: var(--color-background-dark);
-  padding: var(--spacing-sm) var(--spacing-md);
+  background-color: #0a0a0a;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  flex-direction: column;
   z-index: 1000;
-  backdrop-filter: blur(10px);
+  height: 105px; /* Aumentamos altura para que quepa todo */
+  padding: 0;
 }
 
-.track-info {
-  flex: 0 1 20%;
-  min-width: 150px;
-  padding: 0 var(--spacing-sm);
-}
-
-.track-title {
-  font-weight: 500;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  margin-bottom: 2px;
-}
-
-.queue-info {
-  font-size: 0.7rem;
-  color: var(--color-text-secondary);
-}
-
-.player-controls {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--spacing-md);
-  flex: 0 1 20%;
-}
-
-.control-button {
-  background: transparent;
-  border: none;
-  color: var(--color-text);
+/* Barra de progreso roja en la parte superior */
+.progress-bar-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 5px; /* Ligeramente más alto para mejor visibilidad */
+  background-color: rgba(255, 255, 255, 0.15);
+  overflow: visible; /* Permite que el thumb sobresalga */
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.2rem;
-  opacity: 0.8;
-  transition: opacity 0.3s ease, transform 0.2s ease;
-  padding: var(--spacing-xs);
+  touch-action: none; /* Importante para eventos touch en móviles */
+  z-index: 1000;
 }
 
-.control-button:hover {
+/* Estilos específicos para móviles */
+.progress-bar-container.mobile {
+  height: 8px; /* Más alto en móviles para mejor interacción táctil */
+}
+
+/* Cuando se está arrastrando en la barra de progreso */
+.progress-bar-container.dragging .progress-handle,
+.progress-bar-container:active .progress-handle {
+  transform: scale(1.5);
   opacity: 1;
-  transform: scale(1.1);
 }
 
-.control-button:disabled {
-  opacity: 0.3;
-  cursor: not-allowed;
-  transform: scale(1);
-}
-
-.play-button {
-  font-size: 1.4rem;
-  background-color: var(--color-primary);
+/* Mango visible para interacción táctil */
+.progress-handle {
+  position: absolute;
+  top: 50%;
+  width: 12px;
+  height: 12px;
+  background-color: #ffffff;
   border-radius: 50%;
-  width: 40px;
-  height: 40px;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 6px rgba(255, 255, 255, 0.8);
+  pointer-events: none;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+  opacity: 0;
+  z-index: 10;
 }
 
-.progress-container {
-  flex: 0 1 40%;
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-sm);
+.progress-bar-container:hover .progress-handle,
+.progress-bar-container.mobile .progress-handle {
+  opacity: 0.8;
 }
 
-.time {
-  font-size: 0.7rem;
-  color: var(--color-text-secondary);
-  min-width: 40px;
+.progress-bar-container.mobile:active .progress-handle,
+.progress-bar-container.dragging .progress-handle {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1.3);
 }
 
 .progress-bar {
-  flex: 1;
+  position: absolute;
+  top: -10px; /* Posición ajustada para hacer el área de clic más grande */
+  left: 0;
+  width: 100%;
+  height: 25px; /* Área de clic más grande para dedos */
+  opacity: 0; /* Invisible pero interactivo */
+  margin: 0;
+  padding: 0;
+  cursor: pointer;
+  z-index: 20;
   -webkit-appearance: none;
-  height: 4px;
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 2px;
-  overflow: hidden;
+  appearance: none;
+  touch-action: none; /* Mejor manejo de eventos touch */
+}
+
+/* Aumentar área de clic para móviles */
+.progress-bar-container.mobile .progress-bar {
+  height: 30px;
+  top: -11px;
+}
+
+.progress-bar:hover + .progress-bar-filled {
+  height: 5px; /* Efecto al pasar el mouse */
+}
+
+.progress-bar::-webkit-slider-runnable-track {
+  width: 100%;
+  height: 5px;
+  cursor: pointer;
+  background: transparent;
+  border: none;
 }
 
 .progress-bar::-webkit-slider-thumb {
   -webkit-appearance: none;
-  width: 12px;
-  height: 12px;
+  appearance: none;
+  width: 16px; /* Más grande para mejor interacción táctil */
+  height: 16px;
   border-radius: 50%;
-  background: var(--color-primary);
+  background: #ffffff; /* Blanco como en la imagen */
   cursor: pointer;
-  box-shadow: 0 0 5px rgba(0, 0, 0, 0.3);
+  margin-top: -4px; /* Ajuste vertical */
+  box-shadow: 0 0 5px rgba(255, 255, 255, 0.5);
+  opacity: 0; /* Invisible inicialmente */
+  transition: opacity 0.2s, width 0.2s, height 0.2s;
+}
+
+/* Thumb más grande para dispositivos móviles */
+.progress-bar-container.mobile .progress-bar::-webkit-slider-thumb {
+  width: 20px;
+  height: 20px;
+  opacity: 0.7; /* Siempre algo visible en móviles */
+}
+
+.progress-bar:hover::-webkit-slider-thumb,
+.progress-bar:active::-webkit-slider-thumb {
+  opacity: 1; /* Visible al pasar el mouse o al interactuar */
+}
+
+/* Siempre mostrar el cursor cuando está siendo arrastrado */
+.progress-bar:active::-webkit-slider-thumb {
+  width: 14px;
+  height: 14px;
+  background: #ffffff; /* Mantener color blanco al arrastrar */
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.8);
 }
 
 .progress-bar::-moz-range-thumb {
-  width: 12px;
-  height: 12px;
+  width: 16px;
+  height: 16px;
   border-radius: 50%;
-  background: var(--color-primary);
+  background: #ffffff;
   cursor: pointer;
   border: none;
+  opacity: 0;
+  transition: opacity 0.2s, width 0.2s, height 0.2s;
 }
 
-.progress-bar::-ms-thumb {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: var(--color-primary);
-  cursor: pointer;
+/* Thumb más grande para dispositivos móviles en Firefox */
+.progress-bar-container.mobile .progress-bar::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  opacity: 0.7;
 }
 
-.volume-container {
-  flex: 0 1 15%;
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-sm);
-  padding: 0 var(--spacing-md);
-}
-
-.volume-button {
-  background: transparent;
-  border: none;
-  color: var(--color-text);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1rem;
-  opacity: 0.8;
-  transition: opacity 0.3s ease;
-}
-
-.volume-button:hover {
+.progress-bar:hover::-moz-range-thumb {
   opacity: 1;
 }
 
-.volume-slider {
-  -webkit-appearance: none;
-  width: 80px;
-  height: 3px;
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 2px;
-  overflow: hidden;
+.progress-bar-filled {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background-color: #ff0000; /* Rojo similar a la imagen */
+  pointer-events: none;
+  border-radius: 0 1px 1px 0; /* Suavizar el borde derecho */
+  transition: width 0.1s ease; /* Suavizar cambios cuando se arrastra */
 }
 
-.volume-slider::-webkit-slider-thumb {
-  -webkit-appearance: none;
+/* Barra más gruesa en móviles para mejor visibilidad */
+.progress-bar-container.mobile .progress-bar-filled {
+  height: 8px;
+}
+
+/* Indicador visible del progreso actual */
+.progress-bar-filled::after {
+  content: '';
+  position: absolute;
+  right: -5px;
+  top: -3px;
   width: 10px;
   height: 10px;
+  background-color: #ffffff; /* Cambiado a blanco como en la imagen */
   border-radius: 50%;
-  background: var(--color-primary);
+  box-shadow: 0 0 4px rgba(255, 255, 255, 0.7);
+  pointer-events: none;
+}
+
+/* Contenido principal del reproductor */
+.player-content {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  padding: 0;
+  position: relative;
+}
+
+/* Contenedor del título de la canción */
+.track-name-container {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  padding-top: 15px;
+  padding-bottom: 8px;
+}
+
+/* Contenedor de controles */
+.controls-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 18px;
+  width: 100%;
+  padding: 5px 0;
+}
+
+/* Contenedor del control de volumen */
+.volume-container-wrapper {
+  position: absolute;
+  right: 25px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* Botones de control */
+.player-control-button {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 15px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
+  padding: 6px;
+  transition: all 0.2s ease;
+}
+
+/* Estilo específico para el botón play/pause */
+.audio-player .player-content .controls-container .center-play-button {
+  border-radius: 50%;
+  font-size: 18px;
+  padding: 8px;
+  color: rgba(255, 255, 255, 0.7) !important; /* Icono semi-transparente con !important */
+}
+
+.player-control-button:hover {
+  transform: scale(1.1);
+  border-radius: 50%;
+  color: rgba(255, 255, 255, 0.7) !important; /* Color blanco al pasar el cursor */
+  opacity: 1;
+}
+
+.audio-player .player-content .controls-container .center-play-button:hover {
+  color: #7c7c7c !important; /* Hover blanco para botón de play/pause con !important */
+  border-radius: 50%;
+  background-color: white !important;
+}
+
+.player-control-button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Tiempo actual/total */
+.player-time {
+  color: #ccc;
+  font-size: 13px;
+  white-space: nowrap;
+  min-width: 40px;
+  text-align: center;
+}
+
+/* Título de la canción */
+.track-name {
+  text-align: center;
+  font-size: 15px;
+  max-width: 80%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #fff;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+}
+
+/* Control de volumen */
+.volume-control {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  position: relative;
+}
+
+.volume-button {
+  background: none;
+  border: none;
+  color: white;
+  cursor: pointer;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+}
+
+/* Contenedor del control de volumen con indicador visual */
+.volume-container {
+  position: relative;
+  width: 90px; /* Ancho significativamente aumentado para monitores de computadora */
+  height: 4px;
+  background-color: rgba(255, 255, 255, 0.2);
+  border-radius: 50px;
+  overflow: visible;
+}
+
+/* Indicador visual del nivel de volumen */
+.volume-level {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  background-color: #ffffff; /* Color azul como en la imagen */
+  border-radius: 50px;
+  pointer-events: none;
+  transition: width 0.1s ease;
+}
+
+/* Slider de volumen */
+.volume-slider {
+  position: absolute;
+  top: -5px;
+  left: 0;
+  width: 100%;
+  height: 14px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  outline: none;
+  cursor: pointer;
+  border: none;
+  z-index: 2;
+  margin: 0;
+  padding: 0;
+  opacity: 0;
+}
+
+/* Thumb del control de volumen (visible al hover) */
+.volume-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #ffffff;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.volume-container:hover .volume-slider::-webkit-slider-thumb {
+  opacity: 1;
 }
 
 .volume-slider::-moz-range-thumb {
-  width: 10px;
-  height: 10px;
+  width: 12px;
+  height: 12px;
   border-radius: 50%;
-  background: var(--color-primary);
+  background: #3ea6ff;
   cursor: pointer;
   border: none;
+  opacity: 0;
+  transition: opacity 0.2s;
 }
 
-.volume-slider::-ms-thumb {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: var(--color-primary);
-  cursor: pointer;
+.volume-container:hover .volume-slider::-moz-range-thumb {
+  opacity: 1;
 }
 
+/* Audio player responsive */
 @media screen and (max-width: 768px) {
+  /* Añadir estilos responsivos para pantallas pequeñas */
   .audio-player {
-    flex-wrap: wrap;
-    padding: var(--spacing-xs) var(--spacing-sm);
+    /* Más espacio en móviles */
+    padding-bottom: 8px;
+    height: 110px; /* Ligeramente más alto para acomodar la barra de progreso más grande */
   }
-
-  .track-info {
-    flex: 1 1 100%;
-    margin-bottom: var(--spacing-xs);
-    text-align: center;
+  
+  /* Barra de progreso para móviles */
+  .progress-bar-container {
+    height: 8px;
   }
-
-  .player-controls {
-    flex: 1 1 40%;
-    order: 2;
+  
+  /* Asegurarse que el thumb esté siempre visible en móviles */
+  .progress-bar::-webkit-slider-thumb,
+  .progress-bar::-moz-range-thumb {
+    opacity: 0.8;
   }
-
-  .progress-container {
-    flex: 1 1 100%;
-    order: 1;
-    margin-bottom: var(--spacing-sm);
+  
+  /* Aumentar tamaño de los botones para interacción táctil */
+  .player-control-button {
+    padding: 10px;
+    min-width: 40px;
+    min-height: 40px;
   }
-
-  .volume-container {
-    flex: 1 1 40%;
-    order: 3;
-    justify-content: flex-end;
+  
+  /* El botón central de play/pause aún más grande */
+  .center-play-button {
+    font-size: 22px;
+    min-width: 48px;
+    min-height: 48px;
+  }
+  
+  /* Reducir espacio entre elementos en pantallas pequeñas */
+  .controls-container {
+    gap: 10px;
+    padding-top: 8px;
+  }
+  
+  /* Ocultar el tiempo total en pantallas muy pequeñas */
+  @media screen and (max-width: 360px) {
+    .time-total {
+      display: none;
+    }
+  }
+  
+  /* Ocultar control de volumen en pantallas pequeñas */
+  .volume-container-wrapper {
+    display: none;
   }
 }

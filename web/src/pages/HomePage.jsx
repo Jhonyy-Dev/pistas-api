@@ -4,6 +4,7 @@ import '../components/pagination/Pagination.css';
 import '../components/player/PlayerControls.css';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchTracks, fetchTrackStreamUrl } from '../store/slices/tracksSlice';
+import { setCurrentTrack, play, pause, togglePlay, audioElement } from '../store/slices/playerSlice';
 import { FaStop, FaSpinner, FaSearch, FaChevronLeft, FaChevronRight, FaClock, FaFile, FaMusic, FaVolumeUp, FaVolumeDown, FaBackward, FaForward, FaPlay, FaPause } from 'react-icons/fa';
 import pauseIcon from '../assets/Play/pause.png';
 import playIcon from '../assets/Play/play.png';
@@ -12,7 +13,7 @@ const HomePage = () => {
   const dispatch = useDispatch();
   const { tracks, status, error, pagination, streamUrls } = useSelector(state => state.tracks);
   const [currentPlaying, setCurrentPlaying] = useState(null);
-  const [audioElement, setAudioElement] = useState(null);
+  // Ya no necesitamos un elemento de audio local
   const [isLoading, setIsLoading] = useState({});
   const [isPaused, setIsPaused] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -91,48 +92,31 @@ const HomePage = () => {
     }));
   }, [dispatch]);
 
-  // Inicializar elemento de audio
+  // Obtener la referencia al estado global del reproductor
+  const playerState = useSelector(state => state.player);
+  
+  // Sincronizar estado local cuando cambia el estado global
   useEffect(() => {
-    const audio = new Audio();
-    audio.addEventListener('ended', () => setCurrentPlaying(null));
-    setAudioElement(audio);
-    
-    return () => {
-      audio.pause();
-      audio.removeEventListener('ended', () => setCurrentPlaying(null));
-    };
-  }, []);
+    // Actualizar el estado local del reproductor basado en el estado global
+    if (playerState.currentTrack) {
+      setCurrentPlaying(playerState.currentTrack.id);
+      setIsPaused(!playerState.isPlaying);
+    } else {
+      setCurrentPlaying(null);
+      setIsPaused(false);
+    }
+  }, [playerState.currentTrack, playerState.isPlaying]);
 
   // Función para reproducir/pausar una pista
   const togglePlay = useCallback(async (track) => {
-    if (!audioElement) return;
-    
     // Si ya está reproduciendo esta pista, alternar entre pause y play
-    if (currentPlaying === track.id) {
-      if (isPaused) {
-        // Si está pausada, resumir la reproducción
-        audioElement.play();
-        setIsPaused(false);
-      } else {
-        // Si está sonando, pausarla
-        audioElement.pause();
-        setIsPaused(true);
-      }
+    if (playerState.currentTrack && playerState.currentTrack.id === track.id) {
+      dispatch(togglePlay());
       return;
     }
     
-    // Si está reproduciendo otra pista, detenerla completamente
-    if (currentPlaying) {
-      audioElement.pause();
-      audioElement.currentTime = 0; // Reiniciar la posición de reproducción
-      audioElement.src = ''; // Limpiar la fuente para asegurar que se detenga
-      setIsPaused(false);
-    }
-    
     try {
-      setIsLoading(prev => ({ ...prev, [track.id]: true }));
-      
-      // Obtener URL directamente de la API sin depender del estado de Redux
+      // Obtener URL de streaming
       const actionResult = await dispatch(fetchTrackStreamUrl(track.id));
       
       // Extraer la URL del resultado de la acción
@@ -159,22 +143,19 @@ const HomePage = () => {
       }
       
       if (streamUrl) {
-        audioElement.src = streamUrl;
-        const playPromise = audioElement.play();
+        // Crear track completo con URL
+        const trackWithUrl = {
+          ...track,
+          streamUrl
+        };
         
-        // Manejar la promesa para evitar errores silenciosos
-        if (playPromise !== undefined) {
-          playPromise.catch(e => {
-            console.error('Error al reproducir:', e);
-            // Intentar reproducir nuevamente después de un pequeño retraso
-            setTimeout(() => {
-              audioElement.play().catch(() => {});
-            }, 100);
-          });
-        }
-        
+        // Usar el estado global de Redux para reproducir la canción
         setCurrentPlaying(track.id);
-        setIsPaused(false); // Asegurarse de marcar como no pausado cuando inicia una nueva canción
+        setIsPaused(false);
+        
+        // Actualizar el estado de Redux para el reproductor fijo
+        dispatch(setCurrentTrack(trackWithUrl));
+        dispatch(play());
       } else {
         console.error('No se pudo obtener la URL de streaming');
       }
@@ -200,13 +181,13 @@ const HomePage = () => {
 
   // Función para detener la reproducción
   const handleStop = useCallback(() => {
-    if (audioElement && currentPlaying) {
-      audioElement.pause();
-      audioElement.currentTime = 0;
-      setCurrentPlaying(null);
-      setIsPaused(false);
+    if (playerState.currentTrack) {
+      // Usar el estado global para detener la reproducción
+      dispatch(pause());
+      // Resetear la pista actual
+      dispatch(setCurrentTrack(null));
     }
-  }, [audioElement, currentPlaying]);
+  }, [playerState.currentTrack, dispatch]);
 
   return (
     <div style={{
@@ -581,22 +562,20 @@ const HomePage = () => {
                   }}>
                     {/* Texto "Reproduciendo" en recuadro ovalado */}
                     {currentPlaying === track.id && (
-                      <div style={{
-                        backgroundColor: 'rgba(56, 189, 248, 0.15)',
-                        color: '#38bdf8',
+                      <span style={{
+                        backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                        color: isPaused ? '#ff4444' : '#38bdf8',
                         fontSize: windowWidth < 640 ? '10px' : '12px',
-                        fontWeight: '500',
-                        padding: windowWidth < 480 ? '3px 8px' : '4px 12px',
+                        fontWeight: '600',
+                        padding: windowWidth < 480 ? '2px 8px' : '3px 10px',
                         borderRadius: '50px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        border: '1px solid rgba(56, 189, 248, 0.3)',
+                        display: 'inline-block',
+                        border: isPaused ? '1px solid #ff4444' : '1px solid #38bdf8',
                         whiteSpace: 'nowrap',
-                        minWidth: windowWidth < 480 ? '60px' : 'auto'
+                        boxSizing: 'border-box'
                       }}>
-                        Reproduciendo
-                      </div>
+                        {isPaused ? "Pausado" : "Reproduciendo"}
+                      </span>
                     )}
                     <button
                       onClick={(e) => {

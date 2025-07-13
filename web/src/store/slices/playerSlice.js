@@ -7,7 +7,7 @@ const audioElement = typeof Audio !== 'undefined' ? new Audio() : null;
 const initialState = {
   currentTrack: null,
   isPlaying: false,
-  volume: 0.7, // 70% de volumen por defecto
+  volume: 1, // 70% de volumen por defecto
   duration: 0,
   currentTime: 0,
   queue: [], // Cola de reproducción

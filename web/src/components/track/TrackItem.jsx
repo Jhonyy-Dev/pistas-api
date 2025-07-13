@@ -1,24 +1,51 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useDispatch, useSelector } from 'react-redux';
 import { FaPlay, FaPause, FaInfoCircle } from 'react-icons/fa';
+import { pause, play, togglePlay } from '../../store/slices/playerSlice';
+import { audioElement } from '../../store/slices/playerSlice';
 import './TrackItem.css';
 
 const TrackItem = ({ track, isActive, isPlaying, onPlay }) => {
   const navigate = useNavigate();
+  const dispatch = useDispatch();
   const [isLoading, setIsLoading] = useState(false);
   
-  // Ejecuta la acción de reproducción con feedback visual
-  const handlePlay = (e) => {
-    e.stopPropagation(); // Evitar que el evento se propague al contenedor
-    
-    // Mostrar indicador de carga brevemente
-    if (!isActive) {
-      setIsLoading(true);
-      setTimeout(() => setIsLoading(false), 1000); // Mostrar loading por 1 segundo máximo
+  // Monitoreamos el estado real del reproductor desde Redux
+  const playerState = useSelector(state => state.player);
+  
+  // Debug para verificar estado
+  useEffect(() => {
+    if (isActive) {
+      console.log(`TrackItem ${track.title} - isActive: ${isActive}, Redux isPlaying: ${playerState.isPlaying}, Props isPlaying: ${isPlaying}`);
     }
+  }, [isActive, playerState.isPlaying, isPlaying, track.title]);
+  
+  // Función para manejar el clic en el botón de reproducir/pausar
+  const handlePlayPauseClick = (e) => {
+    e.stopPropagation();
+    e.preventDefault();
     
-    // Llamar a la función de reproducción proporcionada por el padre
-    onPlay();
+    console.log(`Click en botón de track ${track.title} - isActive: ${isActive}, isPlaying: ${isPlaying}`);
+    
+    if (!isActive) {
+      // Si no es la pista activa, iniciar nueva reproducción
+      console.log('Iniciando nueva pista');
+      setIsLoading(true);
+      onPlay(); // Esta función viene de props y cambia la pista actual
+      setTimeout(() => setIsLoading(false), 1000);
+    } else {
+      // Si es la pista activa, alternar entre reproducir y pausar
+      if (isPlaying) {
+        console.log('PAUSANDO REPRODUCCIÓN ACTIVA');
+        dispatch(pause());
+        if (audioElement) audioElement.pause();
+      } else {
+        console.log('REANUDANDO REPRODUCCIÓN');
+        dispatch(play());
+        if (audioElement) audioElement.play();
+      }
+    }
   };
   
   const handleViewDetails = (e) => {
@@ -44,22 +71,69 @@ const TrackItem = ({ track, isActive, isPlaying, onPlay }) => {
   // Determinar el estilo del botón de reproducción
   const playButtonClass = `track-play-button ${isActive ? 'active' : ''} ${isLoading ? 'loading' : ''}`;
   
-  // Determinar el icono a mostrar
+  // Determinar el icono para el botón principal dependiendo del estado
   let playIcon;
   if (isLoading) {
     playIcon = '⏳'; // Mostrar indicador de carga
-  } else if (isPlaying) {
-    playIcon = <FaPause />; // Mostrar ícono de pausa si está reproduciendo
+  } else if (isActive && isPlaying) {
+    playIcon = <FaPause />; // Mostrar ícono de pausa si está activa y reproduciendo
   } else {
-    playIcon = <FaPlay />; // Mostrar ícono de reproducción por defecto
+    playIcon = <FaPlay />; // Mostrar ícono de reproducción en otros casos
   }
 
   return (
     <div className={`track-item ${isActive ? 'active' : ''}`}>
-      <div className={playButtonClass} onClick={handlePlay} aria-label={isPlaying ? 'Pausar' : 'Reproducir'}>
-        {playIcon}
-        {isActive && !isPlaying && !isLoading && <span className="status-text">Pausado</span>}
-        {isActive && isPlaying && <span className="status-text">Reproduciendo</span>}
+      <div className="track-controls" style={{ display: 'flex', alignItems: 'center', position: 'relative' }}>
+        {/* Botón unificado de reproducir/pausar */}
+        <button 
+          className={playButtonClass}
+          onClick={handlePlayPauseClick}
+          aria-label={isActive && isPlaying ? "Pausar" : "Reproducir"}
+          style={{
+            cursor: 'pointer',
+            zIndex: 999,
+            position: 'relative',
+            width: '40px',
+            height: '40px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: isActive && isPlaying ? '#ff4444' : '#38bdf8',
+            border: 'none',
+            borderRadius: '50%',
+            color: 'white',
+            fontSize: '16px',
+            outline: 'none',
+            transition: 'background-color 0.3s ease',
+            boxShadow: isActive ? '0 0 10px rgba(0, 0, 0, 0.5)' : 'none'
+          }}
+          data-testid={isActive && isPlaying ? "pause-button" : "play-button"}
+        >
+          {isActive && isPlaying ? <FaPause /> : <FaPlay />}
+        </button>
+        
+        {/* Quitamos el botón adicional de pausa y usamos solo el botón principal que ahora tiene ambas funcionalidades */}
+        
+        {isActive && (
+          <span 
+            className="status-text" 
+            style={{
+              color: isPlaying ? '#38bdf8' : '#ff4444',
+              backgroundColor: 'rgba(0, 0, 0, 0.7)',
+              border: isPlaying ? '1px solid #38bdf8' : '1px solid #ff4444',
+              borderRadius: '50px',
+              padding: '2px 8px',
+              fontSize: '0.75rem',
+              fontWeight: '600',
+              display: 'inline-block',
+              marginLeft: '45px',
+              whiteSpace: 'nowrap',
+              boxSizing: 'border-box'
+            }}
+          >
+            {isPlaying ? "Reproduciendo" : "Pausado"}
+          </span>
+        )}
       </div>
       
       <div className="track-info" onClick={() => navigate(`/tracks/${track.id}`)}>
@@ -75,19 +149,19 @@ const TrackItem = ({ track, isActive, isPlaying, onPlay }) => {
             <span className="track-size">{formatFileSize(track.fileSize)}</span>
           )}
           {track.plays > 0 && (
-            <span className="track-plays">{track.plays} reproducciones</span>
+            <span className="track-plays">⭐ {track.plays}</span>
           )}
+          <button
+            className="info-button"
+            onClick={handleViewDetails}
+            aria-label="Ver detalles"
+          >
+            <FaInfoCircle />
+          </button>
         </div>
       </div>
       
       <div className="track-actions">
-        <button 
-          className="info-button" 
-          onClick={handleViewDetails}
-          aria-label="Ver detalles"
-        >
-          <FaInfoCircle />
-        </button>
       </div>
     </div>
   );
